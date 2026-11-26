@@ -15,6 +15,7 @@ import { toAppError } from '@/lib/errors';
 import type { Product, ProductInput } from '@/types/domain';
 import { sortProducts, toProduct } from './mappers';
 import { SAMPLE_MENU } from '@/config/catalog';
+import { DEMO } from '@/lib/demo';
 
 /** Repository: mọi thao tác với collection `products`. Đọc bằng phiên khách (công khai), ghi bằng phiên nhân viên. */
 
@@ -22,6 +23,7 @@ const MENU_LIMIT = 200; // khớp `request.query.limit <= 200` trong firestore.r
 
 export const productRepo = {
   async list(): Promise<Product[]> {
+    if (DEMO) return sortProducts(SAMPLE_MENU.map((p, i) => ({ ...p, id: `demo-${i}`, updatedAt: null })));
     try {
       await ready();
       const snap = await getDocs(query(collection(db(), 'products'), limit(MENU_LIMIT)));

@@ -20,7 +20,7 @@ export function MobileCartBar() {
       <button
         type="button"
         onClick={openCart}
-        className="flex min-h-[3.5rem] w-full animate-slide-up items-center justify-between gap-3 rounded-2xl border-2 border-ink bg-tangerine px-4 font-bold shadow-sticker active:translate-y-[2px] active:shadow-none"
+        className="flex min-h-[3.5rem] w-full animate-slide-up items-center justify-between gap-3 rounded-2xl border border-edge bg-tangerine px-4 font-bold shadow-sticker active:translate-y-[2px] active:shadow-none"
       >
         <span className="flex items-center gap-2">
           <ShoppingBasket className="h-5 w-5" strokeWidth={2.5} aria-hidden />

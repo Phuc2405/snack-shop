@@ -19,10 +19,14 @@ export const ProductCard = memo(function ProductCard({ product, eager }: { produ
 
   return (
     <article className={cn('sticker sticker-hover group relative flex flex-col overflow-hidden', soldOut && 'opacity-80')}>
-      <div className="relative border-b-2 border-ink">
+      <div className="relative">
         <ProductImage product={product} eager={eager} />
         <div className="absolute left-2 top-2 flex flex-wrap gap-1.5">
-          {soldOut ? <Badge className="bg-white">Tạm hết</Badge> : product.featured && <Badge className="bg-berry">Hot</Badge>}
+          {soldOut ? (
+            <Badge className="border-transparent bg-white/90 backdrop-blur">Tạm hết</Badge>
+          ) : (
+            product.featured && <Badge className="border-transparent bg-white/90 text-tangerine-deep backdrop-blur">Bán chạy</Badge>
+          )}
         </div>
       </div>
 
@@ -32,6 +36,7 @@ export const ProductCard = memo(function ProductCard({ product, eager }: { produ
             {product.name}
           </button>
         </h3>
+        {product.description && <p className="hidden text-[0.9rem] leading-snug text-ink-soft line-clamp-2 sm:block">{product.description}</p>}
         <div className="mt-auto flex items-end justify-between gap-2 pt-2">
           <span className="price text-lg sm:text-xl">{formatPrice(product.price)}</span>
           <button
@@ -39,7 +44,7 @@ export const ProductCard = memo(function ProductCard({ product, eager }: { produ
             // Món có tuỳ chọn (size, đường…) → mở sheet để khách chọn, không thêm mù
             onClick={() => (product.options.length ? view(product) : add(product))}
             disabled={soldOut}
-            className="relative z-10 grid h-11 w-11 shrink-0 place-items-center rounded-full border-2 border-ink bg-tangerine shadow-sticker transition-transform hover:scale-105 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:bg-white disabled:opacity-50 disabled:shadow-none"
+            className="relative z-10 grid h-11 w-11 shrink-0 place-items-center rounded-full bg-tangerine shadow-sticker transition-transform hover:scale-105 active:scale-95 active:shadow-none disabled:bg-white disabled:opacity-50 disabled:shadow-none"
             aria-label={
               soldOut ? `${product.name} tạm hết` : product.options.length ? `Chọn size, topping cho ${product.name}` : `Thêm ${product.name} vào giỏ`
             }

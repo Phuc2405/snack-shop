@@ -33,11 +33,11 @@ export function ShopOpenSwitch() {
       disabled={busy}
       onClick={() => void toggle()}
       className={cn(
-        'inline-flex min-h-[2.75rem] items-center gap-2 rounded-xl border-2 border-ink px-3.5 font-bold shadow-sticker transition-colors disabled:opacity-60',
+        'inline-flex min-h-[2.75rem] items-center gap-2 rounded-xl border border-edge px-3.5 font-bold shadow-sticker transition-colors disabled:opacity-60',
         settings.isOpen ? 'bg-mint' : 'bg-white',
       )}
     >
-      <span className={cn('h-3 w-3 rounded-full border-2 border-ink', settings.isOpen ? 'bg-white' : 'bg-danger')} aria-hidden />
+      <span className={cn('h-3 w-3 rounded-full border border-edge', settings.isOpen ? 'bg-white' : 'bg-danger')} aria-hidden />
       {settings.isOpen ? 'Đang nhận đơn' : 'Đang đóng đơn'}
     </button>
   );

@@ -14,3 +14,5 @@ ui-debug.log*
 # Khoá service account — không bao giờ commit
 *serviceAccount*.json
 *-firebase-adminsdk-*.json
+.vercel
+deploy/

@@ -36,7 +36,7 @@ export function OptionsEditor({ value, onChange, error }: { value: OptionGroup[]
       {value.length === 0 && <p className="text-[0.95rem] text-ink-faint">Món không có tuỳ chọn, khách bấm + là thêm ngay.</p>}
 
       {value.map((g, gi) => (
-        <fieldset key={g.id} className="rounded-2xl border-2 border-ink/70 bg-cream p-3">
+        <fieldset key={g.id} className="rounded-2xl border border-edge bg-cream p-3">
           <legend className="sr-only">Nhóm {g.name || gi + 1}</legend>
           <div className="flex flex-wrap items-end gap-2">
             <label className="min-w-[8rem] flex-1">

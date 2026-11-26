@@ -138,7 +138,7 @@ export default function HomePage() {
                 <section key={cat} aria-labelledby={`cat-${cat}`}>
                   {(filter === 'all' || groups.length > 1) && (
                     <h3 id={`cat-${cat}`} className="mb-4 flex items-center gap-3 text-2xl">
-                      <span className={`inline-block h-4 w-4 rotate-45 rounded-sm border-2 border-ink ${CATEGORIES[cat].accent}`} aria-hidden />
+                      <span className="inline-block h-6 w-1 rounded-full bg-tangerine" aria-hidden />
                       {CATEGORIES[cat].plural}
                     </h3>
                   )}

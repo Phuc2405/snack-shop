@@ -76,7 +76,7 @@ export default function CheckoutPage() {
           title="Giỏ hàng đang trống"
           description="Thêm vài món ngon rồi quay lại đây nhé."
           action={
-            <Link to="/" className="inline-flex min-h-[3rem] items-center rounded-xl border-2 border-ink bg-tangerine px-6 font-bold shadow-sticker">
+            <Link to="/" className="inline-flex min-h-[3rem] items-center rounded-xl border border-edge bg-tangerine px-6 font-bold shadow-sticker">
               Xem menu
             </Link>
           }
@@ -114,7 +114,7 @@ export default function CheckoutPage() {
 
   const optionCls = (active: boolean) =>
     cn(
-      'flex min-h-[4rem] cursor-pointer items-center gap-3 rounded-2xl border-2 border-ink px-4 py-3 transition-[background-color,box-shadow]',
+      'flex min-h-[4rem] cursor-pointer items-center gap-3 rounded-2xl border border-edge px-4 py-3 transition-[background-color,box-shadow]',
       active ? 'bg-lemon shadow-sticker' : 'bg-white hover:bg-lemon-soft',
     );
 
@@ -228,7 +228,7 @@ export default function CheckoutPage() {
               </li>
             ))}
           </ul>
-          <dl className="mt-4 space-y-1.5 border-t-2 border-dashed border-ink/30 pt-3">
+          <dl className="mt-4 space-y-1.5 border-t border-dashed border-edge-strong pt-3">
             <div className="flex justify-between">
               <dt>Tạm tính</dt>
               <dd className="tabular">{formatPrice(subtotal)}</dd>
@@ -254,12 +254,12 @@ export default function CheckoutPage() {
           </p>
 
           {shopStatus === 'ready' && !settings.isOpen && (
-            <p className="mt-4 rounded-xl border-2 border-ink bg-white p-3 font-bold" role="alert">
+            <p className="mt-4 rounded-xl border border-edge bg-white p-3 font-bold" role="alert">
               Tiệm đang tạm nghỉ nhận đơn online.
             </p>
           )}
           {belowMin && (
-            <p className="mt-4 rounded-xl border-2 border-ink bg-white p-3 font-bold" role="alert">
+            <p className="mt-4 rounded-xl border border-edge bg-white p-3 font-bold" role="alert">
               Đơn tối thiểu {formatPrice(settings.minOrder)}, bạn thêm {formatPrice(settings.minOrder - subtotal)} nữa nhé.
             </p>
           )}

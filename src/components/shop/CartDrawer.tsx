@@ -61,12 +61,12 @@ export function CartDrawer() {
           }
         />
       ) : (
-        <ul className="divide-y-2 divide-dashed divide-ink/20">
+        <ul className="divide-y divide-edge">
           {lines.map((l) => (
             <li key={l.key} className="flex gap-3 py-3">
               <ProductImage
                 product={{ name: l.name, imageUrl: l.imageUrl, category: l.category, available: true }}
-                className="h-20 w-20 shrink-0 rounded-xl border-2 border-ink"
+                className="h-20 w-20 shrink-0 rounded-xl border border-edge"
               />
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-2">

@@ -51,7 +51,7 @@ export function PageLoader({ label = 'Đang tải…' }: { label?: string }) {
   return (
     <div className="flex min-h-[40vh] items-center justify-center" role="status">
       <span className="flex items-center gap-3 text-lg text-ink-soft">
-        <span className="h-4 w-4 animate-bounce rounded-full border-2 border-ink bg-tangerine" />
+        <span className="h-4 w-4 animate-bounce rounded-full border border-edge bg-tangerine" />
         {label}
       </span>
     </div>
@@ -60,7 +60,7 @@ export function PageLoader({ label = 'Đang tải…' }: { label?: string }) {
 
 export function Badge({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <span className={cn('inline-flex items-center rounded-full border-2 border-ink px-2.5 py-0.5 text-[0.8rem] font-bold leading-5', className)}>
+    <span className={cn('inline-flex items-center rounded-full border border-edge px-2.5 py-0.5 text-[0.8rem] font-bold leading-5', className)}>
       {children}
     </span>
   );

@@ -128,7 +128,7 @@ export function ProductForm({
               />
             )}
           />
-          <div className="divide-y-2 divide-dashed divide-ink/15 rounded-2xl border-2 border-ink px-4">
+          <div className="divide-y divide-edge rounded-2xl border border-edge px-4">
             <Toggle label="Còn bán" description="Tắt khi món tạm hết" {...register('available')} />
             <Toggle label="Món nổi bật" description="Gắn nhãn Hot" {...register('featured')} />
           </div>
@@ -137,7 +137,7 @@ export function ProductForm({
           <p className="label">Xem trước</p>
           <ProductImage
             product={{ name: preview[0] || 'Món mới', imageUrl: preview[1], category: preview[2], available: preview[3] }}
-            className="w-32 rounded-2xl border-2 border-ink sm:w-full"
+            className="w-32 rounded-2xl border border-edge sm:w-full"
           />
         </div>
       </form>

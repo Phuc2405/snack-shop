@@ -41,9 +41,9 @@ export function OptionPicker({
                   <label
                     key={c.id}
                     className={cn(
-                      'inline-flex min-h-[2.75rem] cursor-pointer select-none items-center gap-2 rounded-full border-2 px-3.5 transition-[background-color,box-shadow]',
+                      'inline-flex min-h-[2.75rem] cursor-pointer select-none items-center gap-2 rounded-full border px-3.5 transition-[background-color,border-color,box-shadow]',
                       'has-[:focus-visible]:outline has-[:focus-visible]:outline-[3px] has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ink',
-                      on ? 'border-ink bg-lemon font-bold shadow-sticker' : 'border-ink/40 bg-white hover:border-ink',
+                      on ? 'border-tangerine bg-tangerine-soft font-bold shadow-sticker' : 'border-edge-strong bg-white hover:border-ink/40',
                     )}
                   >
                     <input

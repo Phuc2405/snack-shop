@@ -17,13 +17,15 @@ import type { Order } from '@/types/domain';
 import { buildOrderPayload, type OrderDraft } from '@/domain/orderPayload';
 import { authService } from './auth.service';
 import { toOrder } from './mappers';
+import { DEMO } from '@/lib/demo';
+import { demoOrderRepo } from './demo.repo';
 
 /** Repository phía KHÁCH cho collection `orders` (phía nhân viên: orders.live.ts). */
 
 /** Tạo sẵn id đơn ở client → bấm lại / mạng chập chờn gửi lại vẫn chỉ ra 1 đơn (idempotency key). */
 export const newOrderId = () => doc(collection(db(), 'orders')).id;
 
-export const orderRepo = {
+const firestoreOrderRepo = {
   async place(orderId: string, draft: OrderDraft): Promise<Order> {
     const uid = await authService.ensureGuest();
     await ready();
@@ -102,3 +104,6 @@ export const orderRepo = {
     }
   },
 };
+
+/** Bản demo dùng repository localStorage; bản thật dùng Firestore — cùng một interface. */
+export const orderRepo: typeof firestoreOrderRepo = DEMO ? demoOrderRepo : firestoreOrderRepo;

@@ -132,7 +132,7 @@ export default function ProductsPage() {
         <ul className="space-y-3">
           {sorted.map((p) => (
             <li key={p.id} className="sticker flex flex-wrap items-center gap-3 p-3 sm:flex-nowrap sm:gap-4">
-              <ProductImage product={p} className="h-16 w-16 shrink-0 rounded-xl border-2 border-ink sm:h-20 sm:w-20" />
+              <ProductImage product={p} className="h-16 w-16 shrink-0 rounded-xl border border-edge sm:h-20 sm:w-20" />
               <div className="min-w-0 flex-1">
                 <p className="font-bold leading-snug">{p.name}</p>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -149,7 +149,7 @@ export default function ProductsPage() {
                   aria-label={`${p.name}: ${p.available ? 'đang bán' : 'tạm hết'}`}
                   disabled={busyId === p.id}
                   onClick={() => void toggleAvailable(p)}
-                  className={`min-h-[2.75rem] rounded-xl border-2 border-ink px-3 font-bold transition-colors disabled:opacity-60 ${p.available ? 'bg-mint' : 'bg-white text-ink-soft'}`}
+                  className={`min-h-[2.75rem] rounded-xl border border-edge px-3 font-bold transition-colors disabled:opacity-60 ${p.available ? 'bg-mint' : 'bg-white text-ink-soft'}`}
                 >
                   {p.available ? 'Đang bán' : 'Tạm hết'}
                 </button>

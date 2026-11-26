@@ -33,13 +33,13 @@ export function AdminLayout() {
 
   const linkCls = ({ isActive }: { isActive: boolean }) =>
     cn(
-      'flex min-h-[2.75rem] shrink-0 items-center gap-2.5 rounded-xl border-2 px-3.5 font-bold transition-colors',
-      isActive ? 'border-ink bg-lemon shadow-sticker' : 'border-transparent hover:bg-white',
+      'flex min-h-[2.75rem] shrink-0 items-center gap-2.5 rounded-xl border px-3.5 font-bold transition-colors',
+      isActive ? 'border-edge bg-white shadow-sticker' : 'border-transparent hover:bg-white/60',
     );
 
   return (
     <div className="flex min-h-dvh flex-col lg:flex-row">
-      <aside className="border-b-2 border-ink bg-tangerine-soft lg:sticky lg:top-0 lg:flex lg:h-dvh lg:w-64 lg:shrink-0 lg:flex-col lg:border-b-0 lg:border-r-2">
+      <aside className="border-b border-edge bg-tangerine-soft lg:sticky lg:top-0 lg:flex lg:h-dvh lg:w-64 lg:shrink-0 lg:flex-col lg:border-b-0 lg:border-r lg:border-edge">
         <div className="flex items-center justify-between gap-3 px-4 py-3 lg:block lg:px-5 lg:py-6">
           <Link to="/admin" className="flex min-w-0 items-center gap-2.5">
             <BrandMark className="h-10 w-10 shrink-0" />
@@ -51,7 +51,7 @@ export function AdminLayout() {
           <button
             type="button"
             onClick={() => void signOut()}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-full border-2 border-ink bg-white lg:hidden"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-edge bg-white lg:hidden"
             aria-label="Đăng xuất"
           >
             <LogOut className="h-5 w-5" />
@@ -64,7 +64,7 @@ export function AdminLayout() {
             </NavLink>
           ))}
         </nav>
-        <div className="hidden border-t-2 border-ink/20 px-5 py-4 lg:block">
+        <div className="hidden border-t border-edge/20 px-5 py-4 lg:block">
           <p className="truncate font-bold">{staff.name || staff.email}</p>
           <p className="truncate text-[0.85rem] text-ink-soft">{staff.email}</p>
           <div className="mt-3 flex gap-2">

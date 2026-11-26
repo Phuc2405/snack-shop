@@ -13,7 +13,7 @@ export const STATUS_TONE: Record<OrderStatus, string> = {
 
 export function StatusPill({ status, label, className }: { status: OrderStatus; label: string; className?: string }) {
   return (
-    <span className={cn('inline-flex items-center rounded-full border-2 border-ink px-2.5 py-0.5 text-[0.85rem] font-bold leading-5', STATUS_TONE[status], className)}>
+    <span className={cn('inline-flex items-center rounded-full border border-edge px-2.5 py-0.5 text-[0.85rem] font-bold leading-5', STATUS_TONE[status], className)}>
       {label}
     </span>
   );

@@ -27,16 +27,16 @@ export function Header() {
 
   const navCls =({ isActive }: { isActive: boolean }) =>
     cn(
-      'inline-flex min-h-[2.75rem] items-center gap-2 rounded-full px-3 font-bold transition-colors hover:bg-lemon-soft sm:px-4',
-      isActive && 'bg-lemon-soft',
+      'inline-flex min-h-[2.75rem] items-center gap-2 rounded-full px-3 font-bold transition-colors hover:bg-white sm:px-4',
+      isActive && 'bg-white',
     );
 
   return (
     <header ref={ref} className="sticky top-0 z-40">
       {announcement && (
-        <p className="border-b-2 border-ink bg-berry px-4 py-1.5 text-center text-[0.9rem] font-bold text-ink">{announcement}</p>
+        <p className="bg-ink px-4 py-1.5 text-center text-[0.9rem] font-bold text-cream">{announcement}</p>
       )}
-      <div className="border-b-2 border-ink bg-lemon">
+      <div className="border-b border-edge bg-cream/90 backdrop-blur-md">
         <div className="shell flex h-16 items-center justify-between gap-2 sm:h-[4.5rem] sm:gap-3">
           <Link to="/" className="flex min-h-[2.75rem] min-w-[2.75rem] items-center gap-2 sm:gap-2.5" aria-label={`${name}, về trang chủ`}>
             <BrandMark className="h-9 w-9 shrink-0 sm:h-11 sm:w-11" />
@@ -55,13 +55,13 @@ export function Header() {
             <button
               type="button"
               onClick={openCart}
-              className="relative inline-flex min-h-[2.75rem] items-center gap-2 rounded-full border-2 border-ink bg-white px-3.5 font-bold shadow-sticker transition-transform hover:-translate-y-0.5 sm:px-4"
+              className="relative inline-flex min-h-[2.75rem] items-center gap-2 rounded-full border border-edge bg-white px-3.5 font-bold shadow-sticker transition-transform hover:-translate-y-0.5 sm:px-4"
               aria-label={`Giỏ hàng, ${count} món`}
             >
               <ShoppingBasket key={bump} className={cn('h-5 w-5', bump > 0 && 'animate-bump')} strokeWidth={2.25} aria-hidden />
               <span className="hidden sm:inline">Giỏ hàng</span>
               {count > 0 && (
-                <span className="grid h-6 min-w-[1.5rem] place-items-center rounded-full border-2 border-ink bg-tangerine px-1 text-[0.8rem] leading-none tabular">
+                <span className="grid h-6 min-w-[1.5rem] place-items-center rounded-full bg-tangerine px-1 text-[0.8rem] leading-none tabular">
                   {count}
                 </span>
               )}

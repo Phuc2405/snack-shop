@@ -94,7 +94,7 @@ export default function ReportPage() {
                     <span className="font-bold tabular text-ink-faint">{i + 1}</span>
                     <div className="min-w-0">
                       <p className="truncate font-bold">{t.name}</p>
-                      <div className="mt-1 h-3 overflow-hidden rounded-full border-2 border-ink bg-white">
+                      <div className="mt-1 h-3 overflow-hidden rounded-full border border-edge bg-white">
                         <div className="h-full bg-tangerine" style={{ width: `${(t.qty / maxQty) * 100}%` }} />
                       </div>
                     </div>

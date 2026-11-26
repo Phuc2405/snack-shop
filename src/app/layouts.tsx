@@ -10,6 +10,7 @@ import { ProductSheet } from '@/components/shop/ProductSheet';
 import { MobileCartBar } from '@/components/shop/MobileCartBar';
 import { useShopStore } from '@/stores/shop.store';
 import { isFirebaseConfigured } from '@/lib/firebase';
+import { DEMO } from '@/lib/demo';
 
 /** Gốc mọi route: dịch vụ toàn cục gắn MỘT lần (toast, hộp xác nhận, tải menu + cấu hình). */
 export function RootLayout() {
@@ -46,7 +47,11 @@ export function RootLayout() {
 export function ShopLayout() {
   return (
     <div className="flex min-h-dvh flex-col">
-      {!isFirebaseConfigured && (
+      {DEMO ? (
+        <p className="bg-tangerine-soft px-4 py-1.5 text-center text-[0.9rem] text-ink">
+          <strong>Bản xem thử (option 2):</strong> dữ liệu mẫu, đơn chỉ lưu trên máy bạn, không giao hàng thật. Freeship cho đơn từ 100k.
+        </p>
+      ) : !isFirebaseConfigured && (
         <p className="bg-danger px-4 py-1.5 text-center text-[0.9rem] font-bold text-white">
           Chưa kết nối Firebase: tạo file .env từ .env.example, hoặc chạy chế độ emulator (xem README).
         </p>

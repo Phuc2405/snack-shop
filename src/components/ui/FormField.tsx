@@ -96,8 +96,8 @@ export const Toggle = forwardRef<HTMLInputElement, { label: string; description?
         </span>
         <span className="relative inline-flex shrink-0">
           <input ref={ref} id={fid} type="checkbox" role="switch" className="peer sr-only" {...rest} />
-          <span className="h-8 w-14 rounded-full border-2 border-ink bg-white transition-colors peer-checked:bg-mint peer-focus-visible:outline peer-focus-visible:outline-[3px] peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink" />
-          <span className="absolute left-1 top-1 h-6 w-6 rounded-full border-2 border-ink bg-white transition-transform peer-checked:translate-x-6 peer-checked:bg-lemon" />
+          <span className="h-8 w-14 rounded-full border border-edge bg-white transition-colors peer-checked:bg-mint peer-focus-visible:outline peer-focus-visible:outline-[3px] peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink" />
+          <span className="absolute left-1 top-1 h-6 w-6 rounded-full border border-edge bg-white transition-transform peer-checked:translate-x-6 peer-checked:bg-lemon" />
         </span>
       </label>
     );

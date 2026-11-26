@@ -82,7 +82,7 @@ export function OrderDetail({
                 <button
                   type="button"
                   onClick={() => void copyAddress(order.customer.address)}
-                  className="grid h-10 w-10 shrink-0 place-items-center rounded-full border-2 border-ink bg-white"
+                  className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-edge bg-white"
                   aria-label="Chép địa chỉ"
                 >
                   <Copy className="h-4 w-4" />
@@ -105,7 +105,7 @@ export function OrderDetail({
                 </li>
               ))}
             </ul>
-            <dl className="mt-2 space-y-1 border-t-2 border-dashed border-ink/30 pt-2">
+            <dl className="mt-2 space-y-1 border-t border-dashed border-edge-strong pt-2">
               <div className="flex justify-between">
                 <dt>Phí giao</dt>
                 <dd className="tabular">{formatPrice(order.deliveryFee)}</dd>

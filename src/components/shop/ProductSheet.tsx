@@ -59,7 +59,7 @@ export function ProductSheet() {
       {product && (
         <div className="space-y-5">
           <div className="grid gap-4 sm:grid-cols-[minmax(0,12rem)_1fr] sm:items-start">
-            <ProductImage product={product} eager className="mx-auto w-full max-w-[12rem] rounded-2xl border-2 border-ink" />
+            <ProductImage product={product} eager className="mx-auto w-full max-w-[12rem] rounded-2xl border border-edge" />
             <div>
               <h3 className="text-2xl">{product.name}</h3>
               <p className="price mt-1 text-2xl">{formatPrice(product.price)}</p>

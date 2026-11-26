@@ -29,7 +29,7 @@ export default function OrdersPage() {
             icon={<ReceiptText className="h-14 w-14 text-tangerine" strokeWidth={1.75} />}
             title="Bạn chưa có đơn nào"
             action={
-              <Link to="/" className="inline-flex min-h-[3rem] items-center rounded-xl border-2 border-ink bg-tangerine px-6 font-bold shadow-sticker">
+              <Link to="/" className="inline-flex min-h-[3rem] items-center rounded-xl border border-edge bg-tangerine px-6 font-bold shadow-sticker">
                 Đặt món ngay
               </Link>
             }

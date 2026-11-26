@@ -3,10 +3,12 @@ import { db, ready } from '@/lib/firebase';
 import { toAppError } from '@/lib/errors';
 import type { ShopSettings } from '@/types/domain';
 import { toSettings } from './mappers';
+import { DEMO, DEMO_SETTINGS } from '@/lib/demo';
 
 /** Repository: doc duy nhất `settings/shop`. */
 export const settingsRepo = {
   async get(): Promise<ShopSettings> {
+    if (DEMO) return DEMO_SETTINGS;
     try {
       await ready();
       const snap = await getDoc(doc(db(), 'settings', 'shop'));

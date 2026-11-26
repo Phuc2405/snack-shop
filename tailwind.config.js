@@ -1,6 +1,6 @@
 /**
- * Design tokens — phong cách "sticker kẹo ngọt":
- * nền kem, khối màu pastel tươi, viền mực đậm 2px, bóng đổ cứng (không blur).
+ * Design tokens — OPTION 2 "tự nhiên": ảnh chụp thật là nhân vật chính, khung xung quanh lùi lại:
+ * nền kem ấm, viền mảnh màu "edge", bóng đổ mềm như ánh sáng ban ngày, cam làm điểm nhấn.
  * Mọi màu dùng cho CHỮ đã kiểm tra tương phản WCAG AA (≥ 4.5:1) trên nền cream/white.
  * Chữ trên nền màu (tangerine, lemon, mint…) luôn là `ink`.
  */
@@ -10,10 +10,12 @@ export default {
   theme: {
     extend: {
       colors: {
-        cream: { DEFAULT: '#FFF8EC', deep: '#FFEFD6' },
+        cream: { DEFAULT: '#FAF6F0', deep: '#F1E9DE' },
+        // Viền mảnh, ấm (thay cho viền mực 2px của option 1)
+        edge: { DEFAULT: '#E6DCCF', strong: '#CDBFAD' },
         ink: { DEFAULT: '#2B2118', soft: '#5C4A3D', faint: '#76624F' },
-        tangerine: { DEFAULT: '#FF7A1A', soft: '#FFE2CC', deep: '#C2410C' },
-        lemon: { DEFAULT: '#FFD43B', soft: '#FFF3C4' },
+        tangerine: { DEFAULT: '#F2782D', soft: '#FCEADD', deep: '#B9430F' },
+        lemon: { DEFAULT: '#F4E3BC', soft: '#FBF4E6' },
         mint: { DEFAULT: '#5FD3A0', soft: '#DAF6E8', deep: '#166B45' },
         berry: { DEFAULT: '#FF5C8A', soft: '#FFE0EA', deep: '#B4235A' },
         sky: { DEFAULT: '#7CC8FF', soft: '#E0F1FF', deep: '#1D5F94' },
@@ -32,8 +34,9 @@ export default {
         '3xl': '1.75rem',
       },
       boxShadow: {
-        sticker: '3px 3px 0 0 #2B2118',
-        'sticker-lg': '5px 5px 0 0 #2B2118',
+        // Tên giữ nguyên để không phải sửa component; giá trị = bóng mềm như ánh sáng tự nhiên
+        sticker: '0 1px 2px rgba(43,33,24,.06), 0 6px 18px -8px rgba(43,33,24,.18)',
+        'sticker-lg': '0 2px 4px rgba(43,33,24,.06), 0 16px 32px -12px rgba(43,33,24,.28)',
         soft: '0 10px 30px -12px rgba(43,33,24,.25)',
       },
       maxWidth: { shell: '72rem' },

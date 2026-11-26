@@ -10,13 +10,13 @@ export function FreeShipHint({ subtotal }: { subtotal: number }) {
   const remaining = freeShipRemaining(subtotal, { freeShipFrom });
   const pct = Math.min(100, Math.round((subtotal / freeShipFrom) * 100));
   return (
-    <div className="rounded-xl border-2 border-ink bg-mint-soft px-3 py-2" role="status">
+    <div className="rounded-xl border border-edge bg-mint-soft px-3 py-2" role="status">
       <p className="flex items-center gap-2 text-[0.95rem] font-bold">
         <Truck className="h-5 w-5 shrink-0" aria-hidden />
         {remaining === null ? 'Đơn của bạn được miễn phí giao hàng!' : `Mua thêm ${formatPrice(remaining)} để được freeship`}
       </p>
       <div
-        className="mt-1.5 h-2.5 overflow-hidden rounded-full border-2 border-ink bg-white"
+        className="mt-1.5 h-2.5 overflow-hidden rounded-full border border-edge bg-white"
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={100}

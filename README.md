@@ -9,6 +9,12 @@ React 19 · Vite · TypeScript · Tailwind · Zustand · React Hook Form + Zod �
 |---|---|
 | ![Trang bán hàng](docs/screenshots/shop-desktop.jpg) | ![Dashboard](docs/screenshots/admin-dashboard.jpg) |
 
+> **Nhánh `option-2`** — giao diện "tự nhiên": ảnh chụp thật (Unsplash, nguồn: [docs/CREDITS.md](docs/CREDITS.md)), viền mảnh, bóng mềm.
+> Xem thử (chế độ demo, dữ liệu mẫu, không cần Firebase): **https://snack-shop-option-2.vercel.app** ·
+> build/deploy lại: `npm run build:demo` rồi `vercel deploy dist --prod`.
+>
+> ![Option 2](docs/screenshots/option2-desktop.jpg)
+
 > Tách ra (clone) từ dự án Antique Shop, chuyển từ Supabase sang Firebase, làm lại giao diện cho đồ ăn vặt.
 > So sánh kiến trúc hai dự án: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 

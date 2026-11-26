@@ -8,8 +8,8 @@ export function PaymentBadge({ order }: { order: Pick<Order, 'paymentMethod' | '
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full border-2 px-2 py-0.5 text-[0.8rem] font-bold leading-5',
-        order.paid ? 'border-ink bg-mint' : order.paymentMethod === 'transfer' ? 'border-ink bg-tangerine-soft' : 'border-ink/30 bg-white text-ink-soft',
+        'inline-flex items-center rounded-full border px-2 py-0.5 text-[0.8rem] font-bold leading-5',
+        order.paid ? 'border-mint bg-mint-soft' : order.paymentMethod === 'transfer' ? 'border-tangerine bg-tangerine-soft' : 'border-edge-strong bg-white text-ink-soft',
       )}
     >
       {label}

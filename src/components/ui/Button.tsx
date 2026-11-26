@@ -13,16 +13,17 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 // Nút "sticker": viền mực, bóng cứng; nhấn xuống thì bóng biến mất như bấm thật.
 const base =
-  'inline-flex select-none items-center justify-center gap-2 rounded-xl border-2 font-bold leading-none ' +
+  'inline-flex select-none items-center justify-center gap-2 rounded-xl border font-bold leading-none ' +
   'transition-[transform,box-shadow,background-color] duration-100 ease-out ' +
   'disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none';
 
-const pressable = 'shadow-sticker hover:-translate-y-0.5 hover:shadow-sticker-lg active:translate-x-[3px] active:translate-y-[3px] active:shadow-none';
+// Option 2: nổi nhẹ khi hover, ấn xuống 1px — không "nhảy" kiểu sticker
+const pressable = 'shadow-sticker hover:-translate-y-px hover:shadow-sticker-lg active:translate-y-px active:shadow-none';
 
 const variants: Record<Variant, string> = {
-  primary: cn('border-ink bg-tangerine text-ink', pressable),
-  secondary: cn('border-ink bg-white text-ink', pressable),
-  success: cn('border-ink bg-mint text-ink', pressable),
+  primary: cn('border-tangerine bg-tangerine text-ink', pressable),
+  secondary: cn('border-edge-strong bg-white text-ink', pressable),
+  success: cn('border-mint bg-mint text-ink', pressable),
   danger: 'border-danger bg-white text-danger hover:bg-danger-soft',
   ghost: 'border-transparent bg-transparent text-ink-soft hover:bg-ink/5 hover:text-ink',
 };

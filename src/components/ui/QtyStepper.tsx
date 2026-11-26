@@ -17,7 +17,7 @@ export function QtyStepper({
   size?: 'md' | 'lg';
 }) {
   const btn = cn(
-    'grid place-items-center rounded-full border-2 border-ink bg-white transition-colors hover:bg-lemon disabled:opacity-40 disabled:hover:bg-white',
+    'grid place-items-center rounded-full border border-edge bg-white transition-colors hover:bg-lemon disabled:opacity-40 disabled:hover:bg-white',
     size === 'lg' ? 'h-12 w-12' : 'h-11 w-11',
   );
   return (

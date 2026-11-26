@@ -114,9 +114,9 @@ export default function OrderPage() {
         </div>
         <p className="mt-2">
           Thanh toán: <strong>{order.paymentMethod === 'transfer' ? 'Chuyển khoản' : 'Tiền mặt khi nhận'}</strong>
-          {order.paid && <span className="ml-2 rounded-full border-2 border-ink bg-mint px-2 py-0.5 text-[0.85rem] font-bold">Đã thanh toán</span>}
+          {order.paid && <span className="ml-2 rounded-full border border-edge bg-mint px-2 py-0.5 text-[0.85rem] font-bold">Đã thanh toán</span>}
         </p>
-        {order.staffNote && <p className="mt-4 rounded-xl border-2 border-ink bg-lemon-soft p-3">Tiệm nhắn: {order.staffNote}</p>}
+        {order.staffNote && <p className="mt-4 rounded-xl border border-edge bg-lemon-soft p-3">Tiệm nhắn: {order.staffNote}</p>}
 
         <h2 className="mt-7 text-xl">Món đã đặt</h2>
         <ul className="mt-2 space-y-1.5">
@@ -130,7 +130,7 @@ export default function OrderPage() {
             </li>
           ))}
         </ul>
-        <dl className="mt-3 space-y-1 border-t-2 border-dashed border-ink/30 pt-3">
+        <dl className="mt-3 space-y-1 border-t border-dashed border-edge-strong pt-3">
           <div className="flex justify-between">
             <dt>Phí giao hàng</dt>
             <dd className="tabular">{order.deliveryFee ? formatPrice(order.deliveryFee) : 'Miễn phí'}</dd>
@@ -152,7 +152,7 @@ export default function OrderPage() {
           {hotline && (
             <a
               href={`tel:${hotline.replace(/\s/g, '')}`}
-              className="inline-flex min-h-[3rem] items-center gap-2 rounded-xl border-2 border-ink bg-white px-5 font-bold shadow-sticker"
+              className="inline-flex min-h-[3rem] items-center gap-2 rounded-xl border border-edge bg-white px-5 font-bold shadow-sticker"
             >
               <Phone className="h-5 w-5" aria-hidden /> Gọi tiệm
             </a>

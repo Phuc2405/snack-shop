@@ -4,6 +4,7 @@ import { Copy } from 'lucide-react';
 import { bankName, buildVietQR } from '@/domain/vietqr';
 import { formatPrice } from '@/lib/format';
 import { toast } from '@/stores/toast.store';
+import { DEMO } from '@/lib/demo';
 
 /** Vẽ ma trận QR bằng 1 path SVG (React tạo phần tử — không dùng innerHTML). */
 function QrSvg({ text, label }: { text: string; label: string }) {
@@ -82,8 +83,18 @@ export function PaymentQR({
       </h2>
       <p className="mt-1 text-ink-soft">Mở app ngân hàng → Quét QR. Số tiền và nội dung đã điền sẵn.</p>
       <div className="mt-4 grid items-center gap-5 sm:grid-cols-[13rem_1fr]">
-        <div className="mx-auto w-full max-w-[13rem] rounded-2xl border-2 border-ink bg-white p-2">
-          <QrSvg text={payload} label={`Mã QR chuyển ${formatPrice(amount)} cho đơn ${code}`} />
+        <div className="relative mx-auto w-full max-w-[13rem] overflow-hidden rounded-2xl border border-edge bg-white p-2">
+          {/* Bản demo công khai: làm mờ hẳn mã QR (tài khoản giả) để không ai lỡ quét chuyển tiền thật */}
+          <div className={DEMO ? 'blur-[6px]' : undefined} aria-hidden={DEMO || undefined}>
+            <QrSvg text={payload} label={`Mã QR chuyển ${formatPrice(amount)} cho đơn ${code}`} />
+          </div>
+          {DEMO && (
+            <p className="absolute inset-0 grid place-items-center bg-white/60 p-3 text-center font-bold leading-snug">
+              Mã QR mẫu
+              <br />
+              Bản demo không nhận tiền
+            </p>
+          )}
         </div>
         <dl className="space-y-1">
           <Row label="Ngân hàng" value={bankName(bin)} />

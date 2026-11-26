@@ -4,6 +4,8 @@ import { lazyPage } from './lazyPage';
 import HomePage from '@/pages/HomePage';
 import { NotFoundPage, RouteError } from '@/pages/NotFoundPage';
 import { AdminLayout } from '@/pages/admin/AdminLayout';
+import { DEMO } from '@/lib/demo';
+import { DemoAdminNotice } from '@/pages/admin/DemoAdminNotice';
 
 // Trang chủ (menu) nằm trong bundle đầu để hiện nhanh nhất; các trang khác tách chunk theo route.
 // Khách không bao giờ tải code trang quản lý.
@@ -31,10 +33,10 @@ export const router = createBrowserRouter([
           { path: '*', element: <NotFoundPage /> },
         ],
       },
-      { path: 'admin/login', element: <LoginPage /> },
+      { path: 'admin/login', element: DEMO ? <DemoAdminNotice /> : <LoginPage /> },
       {
         path: 'admin',
-        element: <AdminLayout />,
+        element: DEMO ? <DemoAdminNotice /> : <AdminLayout />,
         children: [
           { index: true, element: <DashboardPage /> },
           { path: 'products', element: <ProductsPage /> },
