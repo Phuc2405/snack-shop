@@ -34,7 +34,7 @@ try {
     const now = firebase.firestore.Timestamp.now();
     await db.doc(`staff/${uid}`).set({ name: 'Chủ tiệm (demo)', email: EMAIL });
     await db.doc('settings/shop').set({
-      name: 'Tiệm Ăn Vặt Nhà Bông',
+      name: 'Con Nhà Bảy Food',
       tagline: 'Trà sữa mát lạnh, bánh ngọt mỗi ngày',
       hotline: '0909 123 456',
       address: '123 Nguyễn Trãi, Quận 5, TP.HCM',
@@ -47,7 +47,7 @@ try {
       // Tài khoản GIẢ chỉ để demo mã VietQR trên emulator — đổi thành tài khoản thật trong Cài đặt tiệm
       bankBin: '970436',
       bankAccount: '0123456789',
-      bankAccountName: 'TIEM NHA BONG DEMO',
+      bankAccountName: 'CON NHA BAY FOOD DEMO',
       updatedAt: now,
     });
   });

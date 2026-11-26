@@ -10,7 +10,7 @@ import type { ShopSettings } from '@/types/domain';
 export const DEMO = String(import.meta.env.VITE_DEMO_MODE ?? '').trim() === 'true';
 
 export const DEMO_SETTINGS: ShopSettings = {
-  name: 'Tiệm Ăn Vặt Nhà Bông',
+  name: 'Con Nhà Bảy Food',
   tagline: 'Trà sữa mát lạnh, bánh ngọt và đồ ăn vặt làm mới mỗi ngày',
   // Không để số điện thoại / địa chỉ thật trên bản demo công khai
   hotline: '',
