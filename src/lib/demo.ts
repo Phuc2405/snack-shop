@@ -6,7 +6,8 @@ import type { ShopSettings } from '@/types/domain';
  * và trạng thái tự chạy theo thời gian (services/demo.repo.ts). Không có trang quản lý, không gọi mạng nào
  * ngoài ảnh. Giao diện y hệt bản thật vì UI chỉ nói chuyện với services/ (Repository pattern).
  */
-export const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
+// trim(): biến dán qua PowerShell có thể dính BOM (U+FEFF) vô hình → 'true' không khớp
+export const DEMO = String(import.meta.env.VITE_DEMO_MODE ?? '').trim() === 'true';
 
 export const DEMO_SETTINGS: ShopSettings = {
   name: 'Tiệm Ăn Vặt Nhà Bông',
