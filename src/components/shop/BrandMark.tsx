@@ -1,0 +1,13 @@
+/** Logo: ly trà sữa trong khung bo tròn (cùng hình với favicon). */
+export function BrandMark({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 32 32" className={className} aria-hidden>
+      <rect x="1" y="1" width="30" height="30" rx="8" fill="#FFFFFF" stroke="#2B2118" strokeWidth="2" />
+      <path d="M10 12h12l-1.6 13a2 2 0 0 1-2 1.8h-4.8a2 2 0 0 1-2-1.8z" fill="#FF7A1A" stroke="#2B2118" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M9 12h14" stroke="#2B2118" strokeWidth="2" strokeLinecap="round" />
+      <path d="M17 12l2.5-7" stroke="#2B2118" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="14" cy="21" r="1.3" fill="#2B2118" />
+      <circle cx="18" cy="19" r="1.3" fill="#2B2118" />
+    </svg>
+  );
+}

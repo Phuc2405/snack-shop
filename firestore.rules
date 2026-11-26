@@ -1,0 +1,184 @@
+rules_version = '2';
+
+// ============================================================================
+//  Tiệm Ăn Vặt — Firestore Security Rules
+//  Đây là "backend" thật của ứng dụng: mọi kiểm tra ở trình duyệt chỉ để tiện
+//  cho người dùng, còn quyền và dữ liệu hợp lệ được quyết định ở đây.
+//  Mọi đường dẫn KHÔNG khai báo bên dưới đều bị từ chối (deny by default),
+//  nên không có "zombie API" — collection cũ/thử nghiệm không đọc ghi được.
+//  Test: npm run test:rules   (tests/rules/*.test.mjs)
+// ============================================================================
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Helpers ----------
+    function signedIn() { return request.auth != null; }
+
+    // Nhân viên = có tài khoản email/mật khẩu (không phải ẩn danh) VÀ có doc staff/{uid}.
+    // Doc staff chỉ tạo được trong Firebase Console → không ai tự nâng quyền được.
+    function isStaff() {
+      return signedIn()
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && exists(/databases/$(database)/documents/staff/$(request.auth.uid));
+    }
+
+    function shop() { return get(/databases/$(database)/documents/settings/shop).data; }
+
+    function isStr(v, min, max) { return v is string && v.size() >= min && v.size() <= max; }
+    function isInt(v, min, max) { return v is int && v >= min && v <= max; }
+    function optStr(d, key, max) { return !(key in d) || isStr(d[key], 0, max); }
+
+    // ---------- Sản phẩm: ai cũng xem, chỉ nhân viên sửa ----------
+    match /products/{productId} {
+      allow get: if true;
+      // Bắt buộc có limit để một truy vấn không đọc vô hạn (chống "denial of wallet")
+      allow list: if request.query.limit <= 200;
+      allow create, update: if isStaff() && validProduct(request.resource.data);
+      allow delete: if isStaff();
+    }
+
+    function validProduct(d) {
+      return d.keys().hasOnly(['name', 'description', 'price', 'category', 'imageUrl',
+                               'available', 'featured', 'sortOrder', 'createdAt', 'updatedAt'])
+        && d.keys().hasAll(['name', 'price', 'category', 'available', 'featured', 'sortOrder', 'updatedAt'])
+        && isStr(d.name, 1, 80)
+        && optStr(d, 'description', 500)
+        && isInt(d.price, 0, 10000000)
+        && d.category in ['drink', 'cake', 'snack', 'combo']
+        && (!('imageUrl' in d) || d.imageUrl == '' || (isStr(d.imageUrl, 9, 500) && d.imageUrl.matches('^https://[^\\s"<>]+$')))
+        && d.available is bool
+        && d.featured is bool
+        && isInt(d.sortOrder, 0, 9999)
+        && d.updatedAt == request.time;
+    }
+
+    // ---------- Cấu hình tiệm: 1 doc duy nhất settings/shop ----------
+    match /settings/{docId} {
+      allow get: if docId == 'shop';
+      allow list: if false;
+      allow write: if isStaff() && docId == 'shop' && validSettings(request.resource.data);
+    }
+
+    function validSettings(d) {
+      return d.keys().hasOnly(['name', 'tagline', 'hotline', 'address', 'openHours', 'isOpen',
+                               'deliveryFee', 'minOrder', 'announcement', 'updatedAt'])
+        && d.keys().hasAll(['name', 'hotline', 'isOpen', 'deliveryFee', 'minOrder', 'updatedAt'])
+        && isStr(d.name, 1, 60)
+        && optStr(d, 'tagline', 120)
+        && isStr(d.hotline, 0, 20)
+        && optStr(d, 'address', 200)
+        && optStr(d, 'openHours', 80)
+        && optStr(d, 'announcement', 200)
+        && d.isOpen is bool
+        && isInt(d.deliveryFee, 0, 500000)
+        && isInt(d.minOrder, 0, 5000000)
+        && d.updatedAt == request.time;
+    }
+
+    // ---------- Đơn hàng ----------
+    match /orders/{orderId} {
+      // Khách (kể cả ẩn danh) chỉ thấy đơn của chính mình; nhân viên thấy tất cả.
+      allow get: if isStaff() || (signedIn() && resource.data.customerUid == request.auth.uid);
+      allow list: if (isStaff() && request.query.limit <= 500)
+                  || (signedIn() && resource.data.customerUid == request.auth.uid && request.query.limit <= 50);
+
+      // Tạo đơn: dữ liệu hợp lệ + tiệm đang mở + phải ghi kèm throttle/{uid} trong CÙNG batch
+      // (throttle chỉ ghi được 1 lần/60 giây → mỗi khách tối đa 1 đơn/phút).
+      allow create: if signedIn()
+        && validNewOrder(request.resource.data)
+        && getAfter(/databases/$(database)/documents/throttle/$(request.auth.uid)).data.lastOrderAt == request.time;
+
+      allow update: if customerCancels() || staffUpdates();
+      allow delete: if false; // giữ lịch sử, chỉ huỷ
+    }
+
+    function validNewOrder(d) {
+      let s = shop();
+      return d.keys().hasOnly(['code', 'customerUid', 'customer', 'fulfillment', 'items', 'itemCount',
+                               'subtotal', 'deliveryFee', 'total', 'status', 'createdAt', 'updatedAt'])
+        && d.keys().hasAll(['code', 'customerUid', 'customer', 'fulfillment', 'items', 'itemCount',
+                            'subtotal', 'deliveryFee', 'total', 'status', 'createdAt', 'updatedAt'])
+        && d.customerUid == request.auth.uid
+        && d.status == 'new'
+        && d.createdAt == request.time
+        && d.updatedAt == request.time
+        && isStr(d.code, 4, 16)
+        && validCustomer(d.customer, d.fulfillment)
+        && d.items is list && d.items.size() >= 1 && d.items.size() <= 30
+        && isInt(d.itemCount, 1, 300)
+        && isInt(d.subtotal, 0, 50000000)
+        && d.total == d.subtotal + d.deliveryFee
+        && s.isOpen == true
+        && d.subtotal >= s.minOrder
+        && ((d.fulfillment == 'pickup' && d.deliveryFee == 0)
+            || (d.fulfillment == 'delivery' && d.deliveryFee == s.deliveryFee));
+    }
+
+    function validCustomer(c, fulfillment) {
+      return c is map
+        && c.keys().hasOnly(['name', 'phone', 'address', 'note'])
+        && c.keys().hasAll(['name', 'phone', 'address', 'note'])
+        && isStr(c.name, 2, 60)
+        && c.phone is string && c.phone.matches('^(0|\\+84)[0-9]{9,10}$')
+        && isStr(c.note, 0, 300)
+        && fulfillment in ['delivery', 'pickup']
+        && (fulfillment == 'pickup' ? isStr(c.address, 0, 200) : isStr(c.address, 5, 200));
+    }
+
+    // Khách tự huỷ khi đơn còn "new" (tiệm chưa nhận).
+    function customerCancels() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return signedIn()
+        && before.customerUid == request.auth.uid
+        && before.status == 'new'
+        && after.status == 'cancelled'
+        && after.cancelledBy == 'customer'
+        && after.updatedAt == request.time
+        && after.diff(before).affectedKeys().hasOnly(['status', 'updatedAt', 'cancelledBy']);
+    }
+
+    // Nhân viên chuyển trạng thái theo đúng máy trạng thái (giống src/domain/orderStatus.ts).
+    function staffUpdates() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return isStaff()
+        && after.diff(before).affectedKeys().hasOnly(['status', 'updatedAt', 'cancelledBy', 'staffNote'])
+        && after.updatedAt == request.time
+        && (after.status == before.status || after.status in nextStatuses()[before.status])
+        && (!('staffNote' in after) || isStr(after.staffNote, 0, 300))
+        && (!('cancelledBy' in after) || after.cancelledBy == 'shop' || after.cancelledBy == before.get('cancelledBy', null));
+    }
+
+    function nextStatuses() {
+      return {
+        'new': ['confirmed', 'cancelled'],
+        'confirmed': ['preparing', 'cancelled'],
+        'preparing': ['delivering', 'cancelled'],
+        'delivering': ['done', 'cancelled'],
+        'done': [],
+        'cancelled': []
+      };
+    }
+
+    // ---------- Chống spam đơn: 1 doc / khách, không ai đọc được ----------
+    match /throttle/{uid} {
+      allow read: if false;
+      allow create: if signedIn() && uid == request.auth.uid && validThrottle();
+      allow update: if signedIn() && uid == request.auth.uid && validThrottle()
+                    && resource.data.lastOrderAt < request.time - duration.value(60, 's');
+      allow delete: if false;
+    }
+
+    function validThrottle() {
+      return request.resource.data.keys().hasOnly(['lastOrderAt'])
+        && request.resource.data.lastOrderAt == request.time;
+    }
+
+    // ---------- Danh sách nhân viên: chỉ sửa trong Firebase Console ----------
+    match /staff/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid;
+      allow list, write: if false;
+    }
+  }
+}

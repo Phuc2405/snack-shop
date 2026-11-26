@@ -1,0 +1,127 @@
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import type { Product, ProductInput } from '@/types/domain';
+import { productSchema, type ProductFormInput, type ProductFormValues } from '@/schemas/product.schema';
+import { CATEGORIES, CATEGORY_ORDER } from '@/config/catalog';
+import { Dialog } from '@/components/ui/Dialog';
+import { Button } from '@/components/ui/Button';
+import { SelectField, TextAreaField, TextField, Toggle } from '@/components/ui/FormField';
+import { ProductImage } from '@/components/shop/ProductImage';
+
+const EMPTY: ProductFormInput = {
+  name: '',
+  description: '',
+  price: '',
+  category: 'drink',
+  imageUrl: '',
+  available: true,
+  featured: false,
+  sortOrder: 100,
+};
+
+export function ProductForm({
+  open,
+  product,
+  onClose,
+  onSave,
+}: {
+  open: boolean;
+  /** null = thêm món mới */
+  product: Product | null;
+  onClose: () => void;
+  onSave: (input: ProductInput) => Promise<void>;
+}) {
+  const {
+    register,
+    handleSubmit,
+    reset,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<ProductFormInput, unknown, ProductFormValues>({ resolver: zodResolver(productSchema), defaultValues: EMPTY });
+
+  useEffect(() => {
+    if (!open) return;
+    reset(
+      product
+        ? {
+            name: product.name,
+            description: product.description,
+            price: product.price,
+            category: product.category,
+            imageUrl: product.imageUrl,
+            available: product.available,
+            featured: product.featured,
+            sortOrder: product.sortOrder,
+          }
+        : EMPTY,
+    );
+  }, [open, product, reset]);
+
+  const preview = watch(['name', 'imageUrl', 'category', 'available']);
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      busy={isSubmitting}
+      size="lg"
+      tone="lemon"
+      title={product ? 'Sửa món' : 'Thêm món mới'}
+      footer={
+        <div className="flex justify-end gap-3">
+          <Button variant="secondary" onClick={onClose} disabled={isSubmitting}>
+            Huỷ
+          </Button>
+          <Button type="submit" form="product-form" loading={isSubmitting}>
+            Lưu món
+          </Button>
+        </div>
+      }
+    >
+      <form id="product-form" noValidate onSubmit={handleSubmit((v) => onSave(v))} className="grid gap-5 sm:grid-cols-[1fr_10rem]">
+        <div className="space-y-4">
+          <TextField label="Tên món" maxLength={80} error={errors.name?.message} {...register('name')} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <TextField label="Giá (đồng)" inputMode="numeric" placeholder="35000" error={errors.price?.message} {...register('price')} />
+            <SelectField label="Danh mục" {...register('category')}>
+              {CATEGORY_ORDER.map((c) => (
+                <option key={c} value={c}>
+                  {CATEGORIES[c].label}
+                </option>
+              ))}
+            </SelectField>
+          </div>
+          <TextAreaField label="Mô tả" rows={3} maxLength={500} error={errors.description?.message} {...register('description')} />
+          <TextField
+            label="Link ảnh (không bắt buộc)"
+            type="url"
+            inputMode="url"
+            placeholder="https://…"
+            error={errors.imageUrl?.message}
+            hint="Để trống sẽ dùng hình minh hoạ theo danh mục."
+            {...register('imageUrl')}
+          />
+          <TextField
+            label="Thứ tự hiển thị"
+            inputMode="numeric"
+            hint="Số nhỏ hiện trước"
+            error={errors.sortOrder?.message}
+            {...register('sortOrder')}
+          />
+          <div className="divide-y-2 divide-dashed divide-ink/15 rounded-2xl border-2 border-ink px-4">
+            <Toggle label="Còn bán" description="Tắt khi món tạm hết" {...register('available')} />
+            <Toggle label="Món nổi bật" description="Gắn nhãn Hot" {...register('featured')} />
+          </div>
+        </div>
+        <div className="order-first sm:order-none">
+          <p className="label">Xem trước</p>
+          <ProductImage
+            product={{ name: preview[0] || 'Món mới', imageUrl: preview[1], category: preview[2], available: preview[3] }}
+            className="w-32 rounded-2xl border-2 border-ink sm:w-full"
+          />
+        </div>
+      </form>
+    </Dialog>
+  );
+}

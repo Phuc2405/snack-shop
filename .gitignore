@@ -1,0 +1,16 @@
+node_modules
+dist
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+tsconfig.tsbuildinfo
+.firebase/
+emulator-data/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+# Khoá service account — không bao giờ commit
+*serviceAccount*.json
+*-firebase-adminsdk-*.json
