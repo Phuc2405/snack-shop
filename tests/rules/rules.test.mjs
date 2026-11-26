@@ -30,8 +30,12 @@ const SHOP = {
   openHours: '',
   isOpen: true,
   deliveryFee: 15000,
+  freeShipFrom: 0,
   minOrder: 0,
   announcement: '',
+  bankBin: '',
+  bankAccount: '',
+  bankAccountName: '',
 };
 
 const product = (over = {}) => ({
@@ -53,12 +57,14 @@ const order = (uid = 'cust1', over = {}) => ({
   customerUid: uid,
   customer: { name: 'Lan', phone: '0901234567', address: '12 Lê Lợi, Q1', note: '' },
   fulfillment: 'delivery',
-  items: [{ productId: 'p1', name: 'Trà sữa', price: 30000, qty: 2 }],
+  items: [{ productId: 'p1', name: 'Trà sữa', price: 30000, qty: 2, options: [{ group: 'size', choice: 'm', name: 'Size M', price: 0 }] }],
   itemCount: 2,
   subtotal: 60000,
   deliveryFee: 15000,
   total: 75000,
   status: 'new',
+  paymentMethod: 'cod',
+  paid: false,
   createdAt: serverTimestamp(),
   updatedAt: serverTimestamp(),
   ...over,
@@ -185,8 +191,10 @@ describe('orders: tạo đơn', () => {
   it('phí ship sai cấu hình tiệm → từ chối', async () => {
     await assertFails(placeOrder(anon(), 'cust1', 'o1', order('cust1', { deliveryFee: 0, total: 60000 })));
   });
-  it('thêm field lạ (vd: paid: true) → từ chối', async () => {
+  it('thêm field lạ / tự đánh dấu đã trả tiền → từ chối', async () => {
+    await assertFails(placeOrder(anon(), 'cust1', 'o1', order('cust1', { discount: 50000 })));
     await assertFails(placeOrder(anon(), 'cust1', 'o1', order('cust1', { paid: true })));
+    await assertFails(placeOrder(anon(), 'cust1', 'o1', order('cust1', { paymentMethod: 'crypto' })));
   });
   it('số điện thoại sai / tên rỗng / giao hàng thiếu địa chỉ → từ chối', async () => {
     const c = order().customer;
@@ -295,5 +303,62 @@ describe('staff, throttle, collection lạ (zombie API)', () => {
       await assertFails(db.doc('debug/x').set({ a: 1 }));
       await assertFails(db.collection('reviews').limit(1).get());
     }
+  });
+});
+
+describe('freeship', () => {
+  beforeEach(() => seed((db) => db.doc('settings/shop').update({ freeShipFrom: 50000 })));
+  it('đủ ngưỡng: phí ship phải = 0', async () => {
+    await assertSucceeds(placeOrder(anon(), 'cust1', 'o1', order('cust1', { deliveryFee: 0, total: 60000 })));
+  });
+  it('đủ ngưỡng mà vẫn tính phí → từ chối (không thu nhầm tiền khách)', async () => {
+    await assertFails(placeOrder(anon(), 'cust1', 'o1', order('cust1', { deliveryFee: 15000, total: 75000 })));
+  });
+  it('chưa đủ ngưỡng mà tự cho phí 0 → từ chối', async () => {
+    const small = order('cust1', {
+      items: [{ productId: 'p1', name: 'Trà sữa', price: 30000, qty: 1, options: [] }],
+      itemCount: 1,
+      subtotal: 30000,
+      deliveryFee: 0,
+      total: 30000,
+    });
+    await assertFails(placeOrder(anon(), 'cust1', 'o1', small));
+  });
+});
+
+describe('thanh toán chuyển khoản', () => {
+  it('tiệm chưa khai báo tài khoản → không nhận đơn chuyển khoản', async () => {
+    await assertFails(placeOrder(anon(), 'cust1', 'o1', order('cust1', { paymentMethod: 'transfer' })));
+  });
+  it('tiệm đã khai báo tài khoản → nhận đơn chuyển khoản', async () => {
+    await seed((db) => db.doc('settings/shop').update({ bankBin: '970436', bankAccount: '0123456789' }));
+    await assertSucceeds(placeOrder(anon(), 'cust1', 'o1', order('cust1', { paymentMethod: 'transfer' })));
+  });
+  it('chỉ nhân viên được đánh dấu "đã nhận tiền"', async () => {
+    await seed((db) => db.doc('orders/o1').set({ ...order('cust1'), createdAt: Timestamp.now(), updatedAt: Timestamp.now() }));
+    await assertFails(anon('cust1').doc('orders/o1').update({ paid: true, updatedAt: serverTimestamp() }));
+    await assertFails(staff().doc('orders/o1').update({ paid: 'yes', updatedAt: serverTimestamp() }));
+    await assertSucceeds(staff().doc('orders/o1').update({ paid: true, updatedAt: serverTimestamp() }));
+  });
+  it('đơn cũ (tạo trước khi có field paid) nhân viên vẫn xử lý được', async () => {
+    const { paymentMethod, paid, ...legacy } = order('cust1');
+    await seed((db) => db.doc('orders/old').set({ ...legacy, createdAt: Timestamp.now(), updatedAt: Timestamp.now() }));
+    await assertSucceeds(staff().doc('orders/old').update({ status: 'confirmed', updatedAt: serverTimestamp() }));
+  });
+  it('cấu hình ngân hàng sai định dạng → từ chối', async () => {
+    const base = { ...SHOP, updatedAt: serverTimestamp() };
+    await assertSucceeds(staff().doc('settings/shop').set({ ...base, bankBin: '970436', bankAccount: '0123456789', bankAccountName: 'NGUYEN VAN A' }));
+    await assertFails(staff().doc('settings/shop').set({ ...base, bankBin: 'VCB', bankAccount: '0123456789' }));
+    await assertFails(staff().doc('settings/shop').set({ ...base, bankBin: '970436', bankAccount: '<script>' }));
+    await assertFails(staff().doc('settings/shop').set({ ...base, freeShipFrom: -1 }));
+  });
+});
+
+describe('tuỳ chọn món', () => {
+  const group = (i) => ({ id: 'g' + i, name: 'Nhóm ' + i, multi: false, required: true, choices: [{ id: 'a', name: 'A', price: 0 }] });
+  it('nhân viên lưu món có tuỳ chọn được, tối đa 8 nhóm', async () => {
+    await assertSucceeds(staff().collection('products').add(product({ options: [group(1), group(2)] })));
+    await assertFails(staff().collection('products').add(product({ options: Array.from({ length: 9 }, (_, i) => group(i)) })));
+    await assertFails(staff().collection('products').add(product({ options: 'size L' })));
   });
 });

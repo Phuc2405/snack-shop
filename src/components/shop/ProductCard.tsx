@@ -36,10 +36,13 @@ export const ProductCard = memo(function ProductCard({ product, eager }: { produ
           <span className="price text-lg sm:text-xl">{formatPrice(product.price)}</span>
           <button
             type="button"
-            onClick={() => add(product)}
+            // Món có tuỳ chọn (size, đường…) → mở sheet để khách chọn, không thêm mù
+            onClick={() => (product.options.length ? view(product) : add(product))}
             disabled={soldOut}
             className="relative z-10 grid h-11 w-11 shrink-0 place-items-center rounded-full border-2 border-ink bg-tangerine shadow-sticker transition-transform hover:scale-105 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:bg-white disabled:opacity-50 disabled:shadow-none"
-            aria-label={soldOut ? `${product.name} tạm hết` : `Thêm ${product.name} vào giỏ`}
+            aria-label={
+              soldOut ? `${product.name} tạm hết` : product.options.length ? `Chọn size, topping cho ${product.name}` : `Thêm ${product.name} vào giỏ`
+            }
           >
             <Plus className="h-5 w-5" strokeWidth={3} />
           </button>

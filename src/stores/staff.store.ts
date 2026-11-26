@@ -29,7 +29,7 @@ export const useStaffStore = create<StaffState>()((set) => ({
     set({ status: 'loading' });
     let unsub: (() => void) | null = null;
     let disposed = false;
-    void getAuthLazy().then(async (auth) => {
+    void getAuthLazy('staff').then(async (auth) => {
       const { onAuthStateChanged } = await import('firebase/auth');
       if (disposed) return;
       unsub = onAuthStateChanged(auth, async (user) => {
@@ -54,7 +54,7 @@ export const useStaffStore = create<StaffState>()((set) => ({
   },
 
   signOut: async () => {
-    await authService.signOut();
+    await authService.staffSignOut();
     set({ staff: null });
   },
 }));

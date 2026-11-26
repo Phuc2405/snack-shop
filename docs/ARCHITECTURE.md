@@ -25,7 +25,8 @@ của React hay Firebase. Chỉ `services/` gọi Firebase SDK; chỉ `services/
 
 | Pattern | Ở đâu | Vì sao hợp |
 |---|---|---|
-| **Facade** | `lib/firebase.ts` | Một cửa duy nhất khởi tạo app, emulator, App Check, tải lười Auth/Firestore realtime. Đổi backend chỉ sửa ở đây + services. |
+| **Facade** | `lib/firebase.ts` | Một cửa duy nhất khởi tạo app, emulator, App Check, tải lười Auth/Firestore realtime. Đổi backend chỉ sửa ở đây + services. Quản lý **2 phiên** (`guest` / `staff` = 2 Firebase app instance) để khách và nhân viên không đè đăng nhập của nhau. |
+| **Hàm thuần cho tuỳ chọn & giá** | `domain/options.ts`, `domain/pricing.ts`, `domain/vietqr.ts` | Một công thức dùng chung cho sheet chọn món, giỏ, payload đơn, kiểm giá dashboard; phí ship/freeship khớp rules (test so khớp). VietQR (EMVCo + CRC16) sinh trên máy, có test vector. |
 | **Repository** | `services/product.repo.ts`, `order.repo.ts`, `settings.repo.ts` | UI không biết Firestore; mỗi collection một repo, lỗi được dịch sang `AppError` tiếng Việt ở biên. |
 | **Adapter / Mapper** | `services/mappers.ts` | Doc Firestore (có thể bị sửa tay sai kiểu) → object domain an toàn. Timestamp → Date. |
 | **State Machine** | `domain/orderStatus.ts` + `nextStatuses()` trong rules | Trạng thái đơn chỉ đi đúng hướng; client và server dùng cùng bảng, test so khớp. |

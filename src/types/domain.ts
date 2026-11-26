@@ -5,6 +5,34 @@
 
 export type Category = 'drink' | 'cake' | 'snack' | 'combo';
 
+/** Một lựa chọn trong nhóm tuỳ chọn, vd "Size L" (+6.000đ), "50% đường" (+0đ) */
+export interface OptionChoice {
+  id: string;
+  name: string;
+  /** Giá cộng thêm (VND, ≥ 0) */
+  price: number;
+}
+
+/** Nhóm tuỳ chọn của món, vd "Size" (chọn 1, bắt buộc), "Topping" (chọn nhiều, không bắt buộc) */
+export interface OptionGroup {
+  id: string;
+  name: string;
+  /** true = chọn nhiều (topping), false = chọn đúng 1 (size, đường, đá) */
+  multi: boolean;
+  required: boolean;
+  choices: OptionChoice[];
+}
+
+/** Tuỳ chọn khách đã chọn — lưu bản chụp tên + giá vào đơn */
+export interface SelectedOption {
+  group: string;
+  choice: string;
+  name: string;
+  price: number;
+}
+
+export type PaymentMethod = 'cod' | 'transfer';
+
 export interface Product {
   id: string;
   name: string;
@@ -20,6 +48,8 @@ export interface Product {
   featured: boolean;
   /** Thứ tự hiển thị, nhỏ đứng trước */
   sortOrder: number;
+  /** Nhóm tuỳ chọn (size, đường, đá, topping…). Rỗng = món không có tuỳ chọn */
+  options: OptionGroup[];
   updatedAt: Date | null;
 }
 
@@ -34,8 +64,14 @@ export interface ShopSettings {
   /** Tắt = khách không đặt được (rules cũng chặn) */
   isOpen: boolean;
   deliveryFee: number;
+  /** Đơn từ mức này được miễn phí ship (0 = không áp dụng) */
+  freeShipFrom: number;
   minOrder: number;
   announcement: string;
+  /** Chuyển khoản VietQR — để trống số tài khoản = chỉ nhận tiền mặt */
+  bankBin: string;
+  bankAccount: string;
+  bankAccountName: string;
 }
 
 export type Fulfillment = 'delivery' | 'pickup';
@@ -45,9 +81,10 @@ export type OrderStatus = 'new' | 'confirmed' | 'preparing' | 'delivering' | 'do
 export interface OrderItem {
   productId: string;
   name: string;
-  /** Giá tại thời điểm đặt (snapshot) */
+  /** Đơn giá tại thời điểm đặt (snapshot) = giá món + giá các tuỳ chọn */
   price: number;
   qty: number;
+  options: SelectedOption[];
 }
 
 export interface CustomerInfo {
@@ -69,6 +106,9 @@ export interface Order {
   deliveryFee: number;
   total: number;
   status: OrderStatus;
+  paymentMethod: PaymentMethod;
+  /** Nhân viên xác nhận đã nhận tiền (chuyển khoản / tiền mặt) */
+  paid: boolean;
   cancelledBy?: 'customer' | 'shop';
   staffNote?: string;
   createdAt: Date | null;

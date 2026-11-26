@@ -1,4 +1,4 @@
-import type { Category, Order, OrderItem, OrderStatus, Product, ShopSettings } from '@/types/domain';
+import type { Category, OptionGroup, Order, OrderItem, OrderStatus, Product, SelectedOption, ShopSettings } from '@/types/domain';
 import { DEFAULT_SETTINGS } from '@/config/catalog';
 
 /**
@@ -18,6 +18,26 @@ const date = (v: unknown): Date | null =>
 const CATEGORIES: Category[] = ['drink', 'cake', 'snack', 'combo'];
 const STATUSES: OrderStatus[] = ['new', 'confirmed', 'preparing', 'delivering', 'done', 'cancelled'];
 
+const arr = (v: unknown): Raw[] => (Array.isArray(v) ? v.filter((x): x is Raw => !!x && typeof x === 'object') : []);
+
+function toOptionGroups(v: unknown): OptionGroup[] {
+  return arr(v)
+    .map((g, i) => ({
+      id: str(g.id, `g${i}`),
+      name: str(g.name, 'Tuỳ chọn'),
+      multi: bool(g.multi),
+      required: bool(g.required),
+      choices: arr(g.choices)
+        .map((c, j) => ({ id: str(c.id, `c${j}`), name: str(c.name), price: Math.max(0, num(c.price)) }))
+        .filter((c) => c.name),
+    }))
+    .filter((g) => g.choices.length > 0);
+}
+
+function toSelected(v: unknown): SelectedOption[] {
+  return arr(v).map((o) => ({ group: str(o.group), choice: str(o.choice), name: str(o.name), price: num(o.price) }));
+}
+
 export function toProduct(id: string, d: Raw): Product {
   const category = CATEGORIES.includes(d.category as Category) ? (d.category as Category) : 'snack';
   return {
@@ -30,6 +50,7 @@ export function toProduct(id: string, d: Raw): Product {
     available: bool(d.available, true),
     featured: bool(d.featured),
     sortOrder: num(d.sortOrder, 999),
+    options: toOptionGroups(d.options),
     updatedAt: date(d.updatedAt),
   };
 }
@@ -44,14 +65,18 @@ export function toSettings(d: Raw | undefined): ShopSettings {
     openHours: str(d.openHours, DEFAULT_SETTINGS.openHours),
     isOpen: bool(d.isOpen),
     deliveryFee: num(d.deliveryFee, DEFAULT_SETTINGS.deliveryFee),
+    freeShipFrom: num(d.freeShipFrom),
     minOrder: num(d.minOrder),
     announcement: str(d.announcement),
+    bankBin: str(d.bankBin),
+    bankAccount: str(d.bankAccount),
+    bankAccountName: str(d.bankAccountName),
   };
 }
 
 function toItem(v: unknown): OrderItem {
   const d = (v ?? {}) as Raw;
-  return { productId: str(d.productId), name: str(d.name), price: num(d.price), qty: num(d.qty, 1) };
+  return { productId: str(d.productId), name: str(d.name), price: num(d.price), qty: num(d.qty, 1), options: toSelected(d.options) };
 }
 
 export function toOrder(id: string, d: Raw): Order {
@@ -68,6 +93,8 @@ export function toOrder(id: string, d: Raw): Order {
     deliveryFee: num(d.deliveryFee),
     total: num(d.total),
     status: STATUSES.includes(d.status as OrderStatus) ? (d.status as OrderStatus) : 'new',
+    paymentMethod: d.paymentMethod === 'transfer' ? 'transfer' : 'cod',
+    paid: bool(d.paid),
     cancelledBy: d.cancelledBy === 'customer' || d.cancelledBy === 'shop' ? d.cancelledBy : undefined,
     staffNote: typeof d.staffNote === 'string' ? d.staffNote : undefined,
     createdAt: date(d.createdAt),

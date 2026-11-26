@@ -39,7 +39,7 @@ service cloud.firestore {
 
     function validProduct(d) {
       return d.keys().hasOnly(['name', 'description', 'price', 'category', 'imageUrl',
-                               'available', 'featured', 'sortOrder', 'createdAt', 'updatedAt'])
+                               'available', 'featured', 'sortOrder', 'options', 'createdAt', 'updatedAt'])
         && d.keys().hasAll(['name', 'price', 'category', 'available', 'featured', 'sortOrder', 'updatedAt'])
         && isStr(d.name, 1, 80)
         && optStr(d, 'description', 500)
@@ -49,6 +49,9 @@ service cloud.firestore {
         && d.available is bool
         && d.featured is bool
         && isInt(d.sortOrder, 0, 9999)
+        // Tuỳ chọn (size/đường/đá/topping): rules không lặp được vào từng nhóm → giới hạn số nhóm;
+        // giá tuỳ chọn trong đơn được dashboard đối chiếu với menu (auditOrder)
+        && (!('options' in d) || (d.options is list && d.options.size() <= 8))
         && d.updatedAt == request.time;
     }
 
@@ -61,7 +64,8 @@ service cloud.firestore {
 
     function validSettings(d) {
       return d.keys().hasOnly(['name', 'tagline', 'hotline', 'address', 'openHours', 'isOpen',
-                               'deliveryFee', 'minOrder', 'announcement', 'updatedAt'])
+                               'deliveryFee', 'freeShipFrom', 'minOrder', 'announcement',
+                               'bankBin', 'bankAccount', 'bankAccountName', 'updatedAt'])
         && d.keys().hasAll(['name', 'hotline', 'isOpen', 'deliveryFee', 'minOrder', 'updatedAt'])
         && isStr(d.name, 1, 60)
         && optStr(d, 'tagline', 120)
@@ -72,6 +76,10 @@ service cloud.firestore {
         && d.isOpen is bool
         && isInt(d.deliveryFee, 0, 500000)
         && isInt(d.minOrder, 0, 5000000)
+        && (!('freeShipFrom' in d) || isInt(d.freeShipFrom, 0, 50000000))
+        && (!('bankBin' in d) || d.bankBin == '' || d.bankBin.matches('^[0-9]{6}$'))
+        && (!('bankAccount' in d) || d.bankAccount == '' || d.bankAccount.matches('^[0-9]{4,19}$'))
+        && optStr(d, 'bankAccountName', 60)
         && d.updatedAt == request.time;
     }
 
@@ -95,11 +103,16 @@ service cloud.firestore {
     function validNewOrder(d) {
       let s = shop();
       return d.keys().hasOnly(['code', 'customerUid', 'customer', 'fulfillment', 'items', 'itemCount',
-                               'subtotal', 'deliveryFee', 'total', 'status', 'createdAt', 'updatedAt'])
+                               'subtotal', 'deliveryFee', 'total', 'status', 'paymentMethod', 'paid',
+                               'createdAt', 'updatedAt'])
         && d.keys().hasAll(['code', 'customerUid', 'customer', 'fulfillment', 'items', 'itemCount',
-                            'subtotal', 'deliveryFee', 'total', 'status', 'createdAt', 'updatedAt'])
+                            'subtotal', 'deliveryFee', 'total', 'status', 'paymentMethod', 'paid',
+                            'createdAt', 'updatedAt'])
         && d.customerUid == request.auth.uid
         && d.status == 'new'
+        // Khách không tự đánh dấu "đã trả tiền"; chuyển khoản chỉ khi tiệm đã khai báo tài khoản
+        && d.paid == false
+        && (d.paymentMethod == 'cod' || (d.paymentMethod == 'transfer' && s.get('bankAccount', '') != ''))
         && d.createdAt == request.time
         && d.updatedAt == request.time
         && isStr(d.code, 4, 16)
@@ -110,8 +123,14 @@ service cloud.firestore {
         && d.total == d.subtotal + d.deliveryFee
         && s.isOpen == true
         && d.subtotal >= s.minOrder
-        && ((d.fulfillment == 'pickup' && d.deliveryFee == 0)
-            || (d.fulfillment == 'delivery' && d.deliveryFee == s.deliveryFee));
+        && d.deliveryFee == expectedDeliveryFee(d, s);
+    }
+
+    // Phí ship — PHẢI giống deliveryFeeFor() trong src/domain/pricing.ts (có test so khớp)
+    function expectedDeliveryFee(d, s) {
+      return d.fulfillment == 'pickup' ? 0
+        : (s.get('freeShipFrom', 0) > 0 && d.subtotal >= s.get('freeShipFrom', 0)) ? 0
+        : s.deliveryFee;
     }
 
     function validCustomer(c, fulfillment) {
@@ -143,8 +162,9 @@ service cloud.firestore {
       let before = resource.data;
       let after = request.resource.data;
       return isStaff()
-        && after.diff(before).affectedKeys().hasOnly(['status', 'updatedAt', 'cancelledBy', 'staffNote'])
+        && after.diff(before).affectedKeys().hasOnly(['status', 'updatedAt', 'cancelledBy', 'staffNote', 'paid'])
         && after.updatedAt == request.time
+        && after.get('paid', false) is bool // đơn cũ (trước khi có thanh toán) chưa có field paid
         && (after.status == before.status || after.status in nextStatuses()[before.status])
         && (!('staffNote' in after) || isStr(after.staffNote, 0, 300))
         && (!('cancelledBy' in after) || after.cancelledBy == 'shop' || after.cancelledBy == before.get('cancelledBy', null));

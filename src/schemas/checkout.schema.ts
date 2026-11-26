@@ -14,6 +14,7 @@ export const checkoutSchema = z
       .transform(normalizePhone)
       .pipe(z.string().regex(PHONE_RE, 'Số điện thoại chưa đúng (VD: 0901234567)')),
     fulfillment: z.enum(['delivery', 'pickup']),
+    paymentMethod: z.enum(['cod', 'transfer']),
     address: z.string().transform(clean).pipe(z.string().max(200, 'Địa chỉ tối đa 200 ký tự')),
     note: z.string().transform(clean).pipe(z.string().max(300, 'Ghi chú tối đa 300 ký tự')),
     remember: z.boolean(),

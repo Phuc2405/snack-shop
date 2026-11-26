@@ -16,7 +16,7 @@ import type { Product, ProductInput } from '@/types/domain';
 import { sortProducts, toProduct } from './mappers';
 import { SAMPLE_MENU } from '@/config/catalog';
 
-/** Repository: mọi thao tác với collection `products`. */
+/** Repository: mọi thao tác với collection `products`. Đọc bằng phiên khách (công khai), ghi bằng phiên nhân viên. */
 
 const MENU_LIMIT = 200; // khớp `request.query.limit <= 200` trong firestore.rules
 
@@ -34,7 +34,7 @@ export const productRepo = {
   async create(input: ProductInput): Promise<string> {
     try {
       await ready();
-      const ref = await addDoc(collection(db(), 'products'), {
+      const ref = await addDoc(collection(db('staff'), 'products'), {
         ...input,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -48,7 +48,7 @@ export const productRepo = {
   async update(id: string, patch: Partial<ProductInput>): Promise<void> {
     try {
       await ready();
-      await updateDoc(doc(db(), 'products', id), { ...patch, updatedAt: serverTimestamp() });
+      await updateDoc(doc(db('staff'), 'products', id), { ...patch, updatedAt: serverTimestamp() });
     } catch (e) {
       throw toAppError(e);
     }
@@ -57,7 +57,7 @@ export const productRepo = {
   async remove(id: string): Promise<void> {
     try {
       await ready();
-      await deleteDoc(doc(db(), 'products', id));
+      await deleteDoc(doc(db('staff'), 'products', id));
     } catch (e) {
       throw toAppError(e);
     }
@@ -67,9 +67,9 @@ export const productRepo = {
   async seedSample(): Promise<void> {
     try {
       await ready();
-      const batch = writeBatch(db());
+      const batch = writeBatch(db('staff'));
       for (const p of SAMPLE_MENU) {
-        batch.set(doc(collection(db(), 'products')), { ...p, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+        batch.set(doc(collection(db('staff'), 'products')), { ...p, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
       }
       await batch.commit();
     } catch (e) {

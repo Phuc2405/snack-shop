@@ -7,7 +7,8 @@ import { useShopStore } from '@/stores/shop.store';
 import { toast } from '@/stores/toast.store';
 import { toAppError } from '@/lib/errors';
 import { Button } from '@/components/ui/Button';
-import { TextField, Toggle } from '@/components/ui/FormField';
+import { SelectField, TextField, Toggle } from '@/components/ui/FormField';
+import { BANKS } from '@/domain/vietqr';
 import { AdminHeader } from './AdminLayout';
 
 export default function SettingsPage() {
@@ -58,6 +59,13 @@ export default function SettingsPage() {
 
         <section className="sticker grid gap-4 p-5 sm:grid-cols-2 sm:p-6">
           <TextField label="Phí giao hàng (đồng)" inputMode="numeric" error={errors.deliveryFee?.message} {...register('deliveryFee')} />
+          <TextField
+            label="Freeship cho đơn từ (đồng)"
+            inputMode="numeric"
+            hint="0 = không áp dụng. VD 150000: tạm tính từ 150k được miễn phí giao"
+            error={errors.freeShipFrom?.message}
+            {...register('freeShipFrom')}
+          />
           <TextField label="Đơn tối thiểu (đồng)" inputMode="numeric" hint="0 = không giới hạn" error={errors.minOrder?.message} {...register('minOrder')} />
           <TextField
             className="sm:col-span-2"
@@ -66,6 +74,31 @@ export default function SettingsPage() {
             placeholder="VD: Freeship đơn từ 100k hôm nay!"
             error={errors.announcement?.message}
             {...register('announcement')}
+          />
+        </section>
+
+        <section className="sticker grid gap-4 p-5 sm:grid-cols-2 sm:p-6">
+          <div className="sm:col-span-2">
+            <h2 className="text-xl">Chuyển khoản VietQR</h2>
+            <p className="text-ink-soft">Điền đủ để khách chọn "Chuyển khoản QR" khi đặt món. Để trống = chỉ nhận tiền mặt.</p>
+          </div>
+          <SelectField label="Ngân hàng" error={errors.bankBin?.message} {...register('bankBin')}>
+            <option value="">Chưa chọn</option>
+            {BANKS.map((b) => (
+              <option key={b.bin} value={b.bin}>
+                {b.name}
+              </option>
+            ))}
+          </SelectField>
+          <TextField label="Số tài khoản" inputMode="numeric" maxLength={24} error={errors.bankAccount?.message} {...register('bankAccount')} />
+          <TextField
+            className="sm:col-span-2"
+            label="Tên chủ tài khoản"
+            maxLength={60}
+            placeholder="NGUYEN VAN A"
+            hint="Hiện cho khách đối chiếu trước khi chuyển"
+            error={errors.bankAccountName?.message}
+            {...register('bankAccountName')}
           />
         </section>
 

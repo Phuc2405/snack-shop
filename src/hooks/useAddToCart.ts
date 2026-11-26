@@ -1,20 +1,22 @@
 import { useCallback } from 'react';
-import type { Product } from '@/types/domain';
+import type { Product, SelectedOption } from '@/types/domain';
 import { useCartStore } from '@/stores/cart.store';
 import { useUiStore } from '@/stores/ui.store';
 import { toast } from '@/stores/toast.store';
 import { MAX_LINES, MAX_QTY_PER_ITEM } from '@/domain/cart';
+import { optionsLabel } from '@/domain/options';
 
 /** Thêm món vào giỏ + phản hồi cho khách (toast, icon giỏ nảy). Dùng chung cho thẻ món và sheet. */
 export function useAddToCart() {
   const addToCart = useCartStore((s) => s.add);
   const bumpCart = useUiStore((s) => s.bumpCart);
   return useCallback(
-    (p: Product, qty = 1) => {
-      const r = addToCart(p, qty);
+    (p: Product, qty = 1, options: SelectedOption[] = []) => {
+      const r = addToCart(p, qty, options);
+      const what = `${qty > 1 ? `${qty} ` : ''}${p.name}${options.length ? ` (${optionsLabel(options)})` : ''}`;
       if (r === 'added') {
         bumpCart();
-        toast.success(`Đã thêm ${qty > 1 ? `${qty} ` : ''}${p.name}`);
+        toast.success(`Đã thêm ${what}`);
       } else if (r === 'capped') {
         bumpCart();
         toast.info(`Mỗi món tối đa ${MAX_QTY_PER_ITEM} phần mỗi đơn.`);

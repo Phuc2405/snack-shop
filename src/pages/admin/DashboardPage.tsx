@@ -5,7 +5,7 @@ import { useLiveOrders } from '@/hooks/useLiveOrders';
 import { useShopStore } from '@/stores/shop.store';
 import { confirmDialog } from '@/stores/confirm.store';
 import { toast } from '@/stores/toast.store';
-import { setOrderStatus } from '@/services/orders.live';
+import { setOrderPaid, setOrderStatus } from '@/services/orders.live';
 import { auditOrder, type PriceIssue } from '@/domain/pricing';
 import { ACTIVE_STATUSES, nextForwardStatus, statusLabel } from '@/domain/orderStatus';
 import { formatPrice } from '@/lib/format';
@@ -90,6 +90,18 @@ export default function DashboardPage() {
     }
   }, []);
 
+  const togglePaid = useCallback(async (o: Order) => {
+    setBusyId(o.id);
+    try {
+      await setOrderPaid(o, !o.paid);
+      toast.success(o.paid ? `${o.code}: đã bỏ xác nhận thu tiền` : `${o.code}: đã nhận tiền`);
+    } catch (e) {
+      toast.error(toAppError(e).message);
+    } finally {
+      setBusyId(null);
+    }
+  }, []);
+
   const advance = useCallback(
     (o: Order) => {
       const next = nextForwardStatus(o.status);
@@ -164,6 +176,7 @@ export default function DashboardPage() {
         busy={busyId === openId}
         onClose={() => setOpenId(null)}
         onChange={(o, to, note) => void change(o, to, note)}
+        onTogglePaid={(o) => void togglePaid(o)}
       />
     </>
   );

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowLeft, Bike, Store } from 'lucide-react';
+import { ArrowLeft, Banknote, Bike, QrCode, Store } from 'lucide-react';
 import { checkoutSchema, type CheckoutInput, type CheckoutValues } from '@/schemas/checkout.schema';
 import { TextAreaField, TextField } from '@/components/ui/FormField';
 import { Button } from '@/components/ui/Button';
@@ -14,6 +14,9 @@ import { orderRepo } from '@/services/order.repo';
 import { toAppError } from '@/lib/errors';
 import { formatPrice } from '@/lib/format';
 import { cn } from '@/lib/cn';
+import { deliveryFeeFor } from '@/domain/pricing';
+import { optionsLabel } from '@/domain/options';
+import { FreeShipHint } from '@/components/shop/FreeShipHint';
 
 const SAVED_KEY = 'nb-customer';
 
@@ -49,12 +52,15 @@ export default function CheckoutPage() {
       phone: saved.phone ?? '',
       address: saved.address ?? '',
       fulfillment: saved.fulfillment ?? 'delivery',
+      paymentMethod: 'cod',
       note: '',
       remember: true,
     },
   });
   const fulfillment = watch('fulfillment');
-  const deliveryFee = fulfillment === 'delivery' ? settings.deliveryFee : 0;
+  const paymentMethod = watch('paymentMethod');
+  const canTransfer = Boolean(settings.bankAccount && settings.bankBin);
+  const deliveryFee = deliveryFeeFor(subtotal, fulfillment, settings);
   const total = subtotal + deliveryFee;
   const belowMin = subtotal < settings.minOrder;
 
@@ -89,6 +95,7 @@ export default function CheckoutPage() {
       const order = await orderRepo.place(pendingOrderId, {
         lines,
         fulfillment: v.fulfillment,
+        paymentMethod: canTransfer ? v.paymentMethod : 'cod',
         settings,
         customer: { name: v.name, phone: v.phone, address: v.address, note: v.note },
       });
@@ -128,7 +135,11 @@ export default function CheckoutPage() {
                 <Bike className="h-6 w-6 shrink-0" aria-hidden />
                 <span>
                   <span className="block font-bold">Giao tận nơi</span>
-                  <span className="text-[0.9rem] text-ink-soft">Phí ship {formatPrice(settings.deliveryFee)}</span>
+                  <span className="text-[0.9rem] text-ink-soft">
+                    {settings.freeShipFrom > 0
+                      ? `Phí ship ${formatPrice(settings.deliveryFee)}, freeship từ ${formatPrice(settings.freeShipFrom)}`
+                      : `Phí ship ${formatPrice(settings.deliveryFee)}`}
+                  </span>
                 </span>
               </label>
               <label className={optionCls(fulfillment === 'pickup')}>
@@ -141,6 +152,30 @@ export default function CheckoutPage() {
               </label>
             </div>
           </fieldset>
+
+          {canTransfer && (
+            <fieldset>
+              <legend className="label">Thanh toán</legend>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className={optionCls(paymentMethod === 'cod')}>
+                  <input type="radio" value="cod" {...register('paymentMethod')} className="h-5 w-5 accent-ink" />
+                  <Banknote className="h-6 w-6 shrink-0" aria-hidden />
+                  <span>
+                    <span className="block font-bold">Tiền mặt</span>
+                    <span className="text-[0.9rem] text-ink-soft">Trả khi nhận món</span>
+                  </span>
+                </label>
+                <label className={optionCls(paymentMethod === 'transfer')}>
+                  <input type="radio" value="transfer" {...register('paymentMethod')} className="h-5 w-5 accent-ink" />
+                  <QrCode className="h-6 w-6 shrink-0" aria-hidden />
+                  <span>
+                    <span className="block font-bold">Chuyển khoản QR</span>
+                    <span className="text-[0.9rem] text-ink-soft">Quét mã sau khi đặt</span>
+                  </span>
+                </label>
+              </div>
+            </fieldset>
+          )}
 
           <div className="grid gap-5 sm:grid-cols-2">
             <TextField label="Tên của bạn" autoComplete="name" maxLength={60} error={errors.name?.message} {...register('name')} />
@@ -184,9 +219,10 @@ export default function CheckoutPage() {
           <h2 className="text-xl">Đơn của bạn</h2>
           <ul className="mt-3 space-y-2">
             {lines.map((l) => (
-              <li key={l.productId} className="flex justify-between gap-3">
+              <li key={l.key} className="flex justify-between gap-3">
                 <span>
                   <span className="font-bold tabular">{l.qty}×</span> {l.name}
+                  {l.options.length > 0 && <span className="block text-[0.85rem] text-ink-soft">{optionsLabel(l.options)}</span>}
                 </span>
                 <span className="shrink-0 tabular">{formatPrice(l.price * l.qty)}</span>
               </li>
@@ -201,12 +237,21 @@ export default function CheckoutPage() {
               <dt>Phí giao hàng</dt>
               <dd className="tabular">{deliveryFee ? formatPrice(deliveryFee) : 'Miễn phí'}</dd>
             </div>
+            {fulfillment === 'delivery' && (
+              <div className="py-1">
+                <FreeShipHint subtotal={subtotal} />
+              </div>
+            )}
             <div className="flex items-baseline justify-between pt-2 text-xl font-bold">
               <dt>Tổng cộng</dt>
               <dd className="price text-2xl">{formatPrice(total)}</dd>
             </div>
           </dl>
-          <p className="mt-2 text-[0.9rem] text-ink-soft">Thanh toán khi nhận món (tiền mặt hoặc chuyển khoản).</p>
+          <p className="mt-2 text-[0.9rem] text-ink-soft">
+            {canTransfer && paymentMethod === 'transfer'
+              ? 'Sau khi đặt, bạn sẽ thấy mã QR chuyển khoản đúng số tiền.'
+              : 'Thanh toán tiền mặt khi nhận món.'}
+          </p>
 
           {shopStatus === 'ready' && !settings.isOpen && (
             <p className="mt-4 rounded-xl border-2 border-ink bg-white p-3 font-bold" role="alert">

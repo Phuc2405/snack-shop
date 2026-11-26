@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import type { Product } from '@/types/domain';
+import type { Product, SelectedOption } from '@/types/domain';
 import {
   addLine,
   countItems,
@@ -22,9 +22,10 @@ interface CartState {
    * Đổi mới mỗi khi giỏ thay đổi hoặc sau khi đặt thành công.
    */
   pendingOrderId: string;
-  add: (p: Product, qty?: number) => AddResult;
-  setQty: (productId: string, qty: number) => void;
-  remove: (productId: string) => void;
+  add: (p: Product, qty?: number, options?: SelectedOption[]) => AddResult;
+  /** key = CartLine.key (món + tuỳ chọn) */
+  setQty: (key: string, qty: number) => void;
+  remove: (key: string) => void;
   clear: () => void;
   reconcile: (menu: Product[]) => CartChange[];
 }
@@ -34,13 +35,13 @@ export const useCartStore = create<CartState>()(
     (set, get) => ({
       lines: [],
       pendingOrderId: autoId(),
-      add: (p, qty = 1) => {
-        const { lines, result } = addLine(get().lines, p, qty);
+      add: (p, qty = 1, options = []) => {
+        const { lines, result } = addLine(get().lines, p, qty, options);
         if (result === 'added' || result === 'capped') set({ lines, pendingOrderId: autoId() });
         return result;
       },
-      setQty: (productId, qty) => set({ lines: setLineQty(get().lines, productId, qty), pendingOrderId: autoId() }),
-      remove: (productId) => set({ lines: get().lines.filter((l) => l.productId !== productId), pendingOrderId: autoId() }),
+      setQty: (key, qty) => set({ lines: setLineQty(get().lines, key, qty), pendingOrderId: autoId() }),
+      remove: (key) => set({ lines: get().lines.filter((l) => l.key !== key), pendingOrderId: autoId() }),
       clear: () => set({ lines: [], pendingOrderId: autoId() }),
       reconcile: (menu) => {
         if (get().lines.length === 0) return [];
@@ -52,9 +53,17 @@ export const useCartStore = create<CartState>()(
     }),
     {
       name: KEY,
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({ lines: s.lines, pendingOrderId: s.pendingOrderId }),
+      // v1 (trước khi có tuỳ chọn món): dòng chưa có key/options → bổ sung, giỏ cũ của khách không mất
+      migrate: (persisted, version) => {
+        const st = (persisted ?? {}) as { lines?: Partial<CartLine>[]; pendingOrderId?: string };
+        if (version < 2) {
+          st.lines = (st.lines ?? []).map((l) => ({ ...l, key: l.key ?? l.productId, options: l.options ?? [] }));
+        }
+        return st as Pick<CartState, 'lines' | 'pendingOrderId'>;
+      },
     },
   ),
 );

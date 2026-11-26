@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { Product, ProductInput } from '@/types/domain';
 import { productSchema, type ProductFormInput, type ProductFormValues } from '@/schemas/product.schema';
@@ -8,6 +8,7 @@ import { Dialog } from '@/components/ui/Dialog';
 import { Button } from '@/components/ui/Button';
 import { SelectField, TextAreaField, TextField, Toggle } from '@/components/ui/FormField';
 import { ProductImage } from '@/components/shop/ProductImage';
+import { OptionsEditor } from './OptionsEditor';
 
 const EMPTY: ProductFormInput = {
   name: '',
@@ -18,6 +19,7 @@ const EMPTY: ProductFormInput = {
   available: true,
   featured: false,
   sortOrder: 100,
+  options: [],
 };
 
 export function ProductForm({
@@ -37,6 +39,7 @@ export function ProductForm({
     handleSubmit,
     reset,
     watch,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<ProductFormInput, unknown, ProductFormValues>({ resolver: zodResolver(productSchema), defaultValues: EMPTY });
 
@@ -53,6 +56,7 @@ export function ProductForm({
             available: product.available,
             featured: product.featured,
             sortOrder: product.sortOrder,
+            options: structuredClone(product.options),
           }
         : EMPTY,
     );
@@ -108,6 +112,21 @@ export function ProductForm({
             hint="Số nhỏ hiện trước"
             error={errors.sortOrder?.message}
             {...register('sortOrder')}
+          />
+          <Controller
+            control={control}
+            name="options"
+            render={({ field }) => (
+              <OptionsEditor
+                value={field.value}
+                onChange={field.onChange}
+                error={
+                  errors.options
+                    ? 'Kiểm tra lại tuỳ chọn: mỗi nhóm cần tên và ít nhất 1 lựa chọn có tên.'
+                    : undefined
+                }
+              />
+            )}
           />
           <div className="divide-y-2 divide-dashed divide-ink/15 rounded-2xl border-2 border-ink px-4">
             <Toggle label="Còn bán" description="Tắt khi món tạm hết" {...register('available')} />

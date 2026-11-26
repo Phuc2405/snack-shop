@@ -12,7 +12,7 @@ Mỗi lỗ hổng sửa xong phải có **test chặn lại** (`tests/rules/*.te
 ## Lệnh kiểm tra nhanh
 ```bash
 npm run check:secrets   # quét secret trong file sẽ commit
-npm run test:rules      # 39+ ca tấn công vào rules trên emulator (cần Java 11+)
+npm run test:rules      # 48+ ca tấn công vào rules trên emulator (cần Java 11+)
 npm test                # unit: validate, sanitize, state machine, khớp rules ↔ code
 npm run build && npm run preview   # preview gửi CÙNG header CSP như Firebase Hosting → lỗi CSP hiện trong console
 ```

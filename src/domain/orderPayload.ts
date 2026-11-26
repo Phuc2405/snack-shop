@@ -1,6 +1,6 @@
-import type { CustomerInfo, Fulfillment, ShopSettings } from '@/types/domain';
+import type { CustomerInfo, Fulfillment, PaymentMethod, ShopSettings } from '@/types/domain';
 import { countItems, subtotalOf, type CartLine } from './cart';
-import { makeOrderCode } from './pricing';
+import { deliveryFeeFor, makeOrderCode } from './pricing';
 
 /** Các field của doc order — PHẢI khớp `keys().hasOnly([...])` trong firestore.rules (có test). */
 export const ORDER_FIELDS = [
@@ -14,6 +14,8 @@ export const ORDER_FIELDS = [
   'deliveryFee',
   'total',
   'status',
+  'paymentMethod',
+  'paid',
   'createdAt',
   'updatedAt',
 ] as const;
@@ -22,7 +24,8 @@ export interface OrderDraft {
   lines: CartLine[];
   customer: CustomerInfo;
   fulfillment: Fulfillment;
-  settings: Pick<ShopSettings, 'deliveryFee'>;
+  paymentMethod: PaymentMethod;
+  settings: Pick<ShopSettings, 'deliveryFee' | 'freeShipFrom'>;
 }
 
 /**
@@ -30,9 +33,15 @@ export interface OrderDraft {
  * repository gắn serverTimestamp()). Giữ ở domain để test được không cần Firebase.
  */
 export function buildOrderPayload(draft: OrderDraft, customerUid: string, code = makeOrderCode()) {
-  const items = draft.lines.map((l) => ({ productId: l.productId, name: l.name, price: l.price, qty: l.qty }));
+  const items = draft.lines.map((l) => ({
+    productId: l.productId,
+    name: l.name,
+    price: l.price,
+    qty: l.qty,
+    options: l.options.map((o) => ({ group: o.group, choice: o.choice, name: o.name, price: o.price })),
+  }));
   const subtotal = subtotalOf(items);
-  const deliveryFee = draft.fulfillment === 'delivery' ? draft.settings.deliveryFee : 0;
+  const deliveryFee = deliveryFeeFor(subtotal, draft.fulfillment, draft.settings);
   return {
     code,
     customerUid,
@@ -49,5 +58,7 @@ export function buildOrderPayload(draft: OrderDraft, customerUid: string, code =
     deliveryFee,
     total: subtotal + deliveryFee,
     status: 'new' as const,
+    paymentMethod: draft.paymentMethod,
+    paid: false,
   };
 }

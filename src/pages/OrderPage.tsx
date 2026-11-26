@@ -12,6 +12,8 @@ import { toAppError } from '@/lib/errors';
 import { confirmDialog } from '@/stores/confirm.store';
 import { toast } from '@/stores/toast.store';
 import { useShopStore } from '@/stores/shop.store';
+import { optionsLabel } from '@/domain/options';
+import { PaymentQR } from '@/components/shop/PaymentQR';
 
 const POLL_MS = 15_000;
 
@@ -19,13 +21,16 @@ const POLL_MS = 15_000;
 export default function OrderPage() {
   const { id = '' } = useParams();
   const justPlaced = Boolean((useLocation().state as { justPlaced?: boolean } | null)?.justPlaced);
-  const hotline = useShopStore((s) => s.settings.hotline);
+  const settings = useShopStore((s) => s.settings);
+  const hotline = settings.hotline;
   const [cancelling, setCancelling] = useState(false);
   const [finished, setFinished] = useState(false);
+  const isFinished = (o: { status: Parameters<typeof isFinal>[0]; paymentMethod: string; paid: boolean }) =>
+    isFinal(o.status) && (o.paymentMethod !== 'transfer' || o.paid || o.status === 'cancelled');
   const { data: order, loading, error, reload, setData } = useAsync(
     async () => {
       const o = await orderRepo.getMine(id);
-      if (o && isFinal(o.status)) setFinished(true);
+      if (o && isFinished(o)) setFinished(true);
       return o;
     },
     [id],
@@ -83,6 +88,16 @@ export default function OrderPage() {
         </div>
       )}
 
+      {order.paymentMethod === 'transfer' && !order.paid && order.status !== 'cancelled' && settings.bankAccount && (
+        <PaymentQR
+          bin={settings.bankBin}
+          account={settings.bankAccount}
+          accountName={settings.bankAccountName}
+          amount={order.total}
+          code={order.code}
+        />
+      )}
+
       <div className="sticker mt-5 p-5 sm:p-7">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h1 className="text-2xl sm:text-3xl">
@@ -97,14 +112,19 @@ export default function OrderPage() {
         <div className="mt-5">
           <OrderProgress status={order.status} fulfillment={order.fulfillment} />
         </div>
+        <p className="mt-2">
+          Thanh toán: <strong>{order.paymentMethod === 'transfer' ? 'Chuyển khoản' : 'Tiền mặt khi nhận'}</strong>
+          {order.paid && <span className="ml-2 rounded-full border-2 border-ink bg-mint px-2 py-0.5 text-[0.85rem] font-bold">Đã thanh toán</span>}
+        </p>
         {order.staffNote && <p className="mt-4 rounded-xl border-2 border-ink bg-lemon-soft p-3">Tiệm nhắn: {order.staffNote}</p>}
 
         <h2 className="mt-7 text-xl">Món đã đặt</h2>
         <ul className="mt-2 space-y-1.5">
-          {order.items.map((it) => (
-            <li key={it.productId} className="flex justify-between gap-3">
+          {order.items.map((it, i) => (
+            <li key={`${it.productId}-${i}`} className="flex justify-between gap-3">
               <span>
                 <span className="font-bold tabular">{it.qty}×</span> {it.name}
+                {it.options.length > 0 && <span className="block text-[0.85rem] text-ink-soft">{optionsLabel(it.options)}</span>}
               </span>
               <span className="tabular">{formatPrice(it.price * it.qty)}</span>
             </li>

@@ -22,6 +22,7 @@ erDiagram
         bool available "còn bán"
         bool featured "nhãn Hot"
         int sortOrder "0-9999, nhỏ đứng trước"
+        array options "≤ 8 nhóm tuỳ chọn, xem bên dưới"
         timestamp createdAt
         timestamp updatedAt
     }
@@ -33,8 +34,12 @@ erDiagram
         string openHours
         bool isOpen "tắt = khách không đặt được"
         int deliveryFee
+        int freeShipFrom "0 = tắt; tạm tính ≥ mức này thì phí ship 0"
         int minOrder
         string announcement "dòng thông báo đầu trang"
+        string bankBin "mã BIN 6 số của ngân hàng (VietQR)"
+        string bankAccount "số tài khoản; rỗng = chỉ nhận tiền mặt"
+        string bankAccountName
         timestamp updatedAt
     }
     orders {
@@ -42,12 +47,14 @@ erDiagram
         string customerUid "uid Firebase Auth (ẩn danh)"
         map customer "name, phone, address, note"
         string fulfillment "delivery | pickup"
-        array items "productId, name, price, qty (≤ 30 dòng)"
+        array items "productId, name, price (đơn giá gồm tuỳ chọn), qty, options[] (≤ 30 dòng)"
         int itemCount
         int subtotal
         int deliveryFee
         int total "= subtotal + deliveryFee"
         string status "new → confirmed → preparing → delivering → done | cancelled"
+        string paymentMethod "cod | transfer"
+        bool paid "chỉ nhân viên đổi được"
         string cancelledBy "customer | shop"
         string staffNote "nhắn khách"
         timestamp createdAt
@@ -71,6 +78,24 @@ erDiagram
 | `orders/{auto-id}` | Khách: đơn của mình · Nhân viên: tất cả | Khách: tạo + huỷ khi còn `new` · Nhân viên: đổi trạng thái | Không ai xoá được (giữ lịch sử) |
 | `staff/{uid}` | Chính người đó | **Chỉ Console** | Có doc = có quyền quản lý |
 | `throttle/{uid}` | Không ai | Khách (khi đặt đơn) | Chống spam, đừng sửa tay |
+
+### Tuỳ chọn món (`products.options`)
+Mỗi phần tử là một **nhóm**:
+```json
+{ "id": "size", "name": "Size", "multi": false, "required": true,
+  "choices": [ { "id": "m", "name": "Size M", "price": 0 }, { "id": "l", "name": "Size L", "price": 6000 } ] }
+```
+- `multi: false` = chọn đúng 1 (size, đường, đá) · `multi: true` = chọn nhiều (topping)
+- `price` = tiền cộng thêm (đồng). Đơn giá trong đơn = giá món + tổng `price` các lựa chọn.
+- **Đừng đổi `id`** của nhóm/lựa chọn đang bán (đổi tên thoải mái): dashboard dùng id để đối chiếu giá đơn cũ.
+- Sửa dễ nhất trong trang **/admin/products → Sửa món → Tuỳ chọn món** (có nút "Mẫu đồ uống").
+
+Trong đơn, `items[].options` lưu bản chụp: `{ group, choice, name, price }`.
+
+### Thanh toán
+- Khách chọn **Tiền mặt** hoặc **Chuyển khoản QR** (chỉ hiện khi `settings/shop` có `bankBin` + `bankAccount`).
+- Chuyển khoản: trang theo dõi đơn hiện mã **VietQR** (số tiền + nội dung = mã đơn), sinh ngay trên máy khách.
+- Nhân viên đối chiếu sao kê rồi bấm **"Đã nhận tiền"** (`paid = true`). Khách không tự đổi được `paid` (rules chặn).
 
 ### Trạng thái đơn
 

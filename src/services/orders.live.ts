@@ -77,6 +77,17 @@ export async function setOrderStatus(order: Order, to: OrderStatus, staffNote?: 
   }
 }
 
+/** Nhân viên xác nhận đã nhận tiền (chuyển khoản / tiền mặt) — bấm lại để bỏ xác nhận. */
+export async function setOrderPaid(order: Order, paid: boolean): Promise<void> {
+  try {
+    const rt = await getRealtimeDb();
+    const { doc, updateDoc, serverTimestamp } = await import('firebase/firestore');
+    await updateDoc(doc(rt, 'orders', order.id), { paid, updatedAt: serverTimestamp() });
+  } catch (e) {
+    throw toAppError(e);
+  }
+}
+
 /** Lịch sử: đơn trong khoảng ngày (cho trang thống kê). Đọc 1 lần, không realtime. */
 export async function listOrdersBetween(from: Date, to: Date): Promise<Order[]> {
   try {

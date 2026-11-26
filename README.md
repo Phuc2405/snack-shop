@@ -16,11 +16,16 @@ React 19 · Vite · TypeScript · Tailwind · Zustand · React Hook Form + Zod �
 
 **Khách** (`/`, `/checkout`, `/orders`)
 - Menu theo danh mục, tìm món không dấu, xem chi tiết dạng bottom sheet, giỏ hàng nhớ trên máy (đồng bộ giữa các tab)
-- Đặt món: giao tận nơi / ghé lấy, nhớ thông tin cho lần sau, chống bấm trùng
+- **Tuỳ chọn món**: size, % đường, đá, topping (giá cộng thêm hiện ngay)
+- Đặt món: giao tận nơi / ghé lấy, **freeship theo ngưỡng** ("mua thêm Xđ để được freeship"), nhớ thông tin cho lần sau, chống bấm trùng
+- Thanh toán **tiền mặt** hoặc **chuyển khoản VietQR** (mã QR đúng số tiền + nội dung = mã đơn, quét bằng app ngân hàng bất kỳ)
 - Theo dõi đơn tự cập nhật trạng thái, tự huỷ khi tiệm chưa nhận
 
 **Nhân viên** (`/admin`)
-- Đơn hàng realtime: âm báo + số đơn mới trên tab, 1 bấm chuyển bước (Nhận → Làm → Giao → Xong), nhắn khách, cảnh báo đơn sai giá
+- Đơn hàng realtime: âm báo + số đơn mới trên tab, 1 bấm chuyển bước (Nhận → Làm → Giao → Xong), nhắn khách, cảnh báo đơn sai giá,
+  badge "CK · chưa nhận tiền" + nút **Đã nhận tiền**
+- Soạn tuỳ chọn món (có mẫu đồ uống), cài freeship và tài khoản nhận VietQR
+- Đăng nhập quản lý và đặt món thử **trên cùng trình duyệt** không đè phiên nhau
 - Quản lý món (bật/tắt "còn bán" 1 chạm, tạo menu mẫu), mở/đóng nhận đơn, phí ship, đơn tối thiểu, thông báo đầu trang
 - Báo cáo doanh thu, món bán chạy
 
@@ -68,7 +73,7 @@ Sơ đồ, ý nghĩa từng field, cách sửa trong Console: **[docs/DATABASE.m
 | Lệnh | Làm gì |
 |---|---|
 | `npm run check` | Quét secret → typecheck → unit test → build → ngân sách dung lượng |
-| `npm run test:rules` | 39 ca tấn công vào Firestore rules trên emulator |
+| `npm run test:rules` | 48 ca tấn công vào Firestore rules trên emulator |
 | `npm test` | Unit test domain (giỏ, giá, trạng thái, validate, sanitize, khớp rules ↔ code) |
 | `npm run check:size` | Dung lượng gzip; JS tải lần đầu ≤ 175KB |
 

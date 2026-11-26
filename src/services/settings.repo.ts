@@ -20,7 +20,7 @@ export const settingsRepo = {
     try {
       await ready();
       // Ghi đè cả doc (không merge) để field lạ do sửa tay trong Console không làm rules từ chối
-      await setDoc(doc(db(), 'settings', 'shop'), { ...s, updatedAt: serverTimestamp() });
+      await setDoc(doc(db('staff'), 'settings', 'shop'), { ...s, updatedAt: serverTimestamp() });
     } catch (e) {
       throw toAppError(e);
     }

@@ -7,6 +7,8 @@ import { formatPrice, timeAgo } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { Button } from '@/components/ui/Button';
 import { StatusPill } from '@/components/shop/StatusPill';
+import { optionsLabel } from '@/domain/options';
+import { PaymentBadge } from './PaymentBadge';
 
 export const OrderCard = memo(function OrderCard({
   order,
@@ -29,7 +31,10 @@ export const OrderCard = memo(function OrderCard({
           <p className="text-lg font-bold tabular">{order.code}</p>
           <p className="text-[0.9rem] text-ink-faint">{timeAgo(order.createdAt)}</p>
         </div>
-        <StatusPill status={order.status} label={statusLabel(order.status, order.fulfillment)} />
+        <div className="flex flex-col items-end gap-1">
+          <StatusPill status={order.status} label={statusLabel(order.status, order.fulfillment)} />
+          <PaymentBadge order={order} />
+        </div>
       </div>
 
       <div className="mt-3 flex items-center gap-2">
@@ -43,9 +48,10 @@ export const OrderCard = memo(function OrderCard({
       {order.fulfillment === 'delivery' && <p className="line-clamp-2 text-[0.95rem] text-ink-soft">{order.customer.address}</p>}
 
       <ul className="mt-2 text-[0.95rem]">
-        {order.items.slice(0, 4).map((it) => (
-          <li key={it.productId} className="truncate">
+        {order.items.slice(0, 4).map((it, i) => (
+          <li key={`${it.productId}-${i}`} className="leading-snug">
             <span className="font-bold tabular">{it.qty}×</span> {it.name}
+            {it.options.length > 0 && <span className="block truncate pl-6 text-[0.85rem] text-ink-soft">{optionsLabel(it.options)}</span>}
           </li>
         ))}
         {order.items.length > 4 && <li className="text-ink-faint">+{order.items.length - 4} món khác</li>}

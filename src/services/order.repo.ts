@@ -55,7 +55,7 @@ export const orderRepo = {
   /** Đơn của khách trên thiết bị này (không tự tạo phiên ẩn danh nếu chưa từng đặt). */
   async listMine(): Promise<Order[]> {
     try {
-      const user = await authService.currentUser();
+      const user = await authService.currentGuest();
       if (!user) return [];
       await ready();
       const q = query(
@@ -73,7 +73,7 @@ export const orderRepo = {
 
   async getMine(id: string): Promise<Order | null> {
     try {
-      const user = await authService.currentUser();
+      const user = await authService.currentGuest();
       if (!user) return null;
       await ready();
       const snap = await getDoc(doc(db(), 'orders', id));

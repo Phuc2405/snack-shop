@@ -38,7 +38,7 @@ export function Header() {
       )}
       <div className="border-b-2 border-ink bg-lemon">
         <div className="shell flex h-16 items-center justify-between gap-2 sm:h-[4.5rem] sm:gap-3">
-          <Link to="/" className="flex min-w-0 items-center gap-2 sm:gap-2.5" aria-label={`${name}, về trang chủ`}>
+          <Link to="/" className="flex min-h-[2.75rem] min-w-[2.75rem] items-center gap-2 sm:gap-2.5" aria-label={`${name}, về trang chủ`}>
             <BrandMark className="h-9 w-9 shrink-0 sm:h-11 sm:w-11" />
             {/* Tên dài thì xuống 2 dòng thay vì bị cắt "Tiệm Ă…" trên điện thoại */}
             <span className="hidden text-base font-bold leading-tight min-[360px]:line-clamp-2 sm:text-xl" aria-hidden>

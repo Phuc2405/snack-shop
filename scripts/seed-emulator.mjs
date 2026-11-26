@@ -41,8 +41,13 @@ try {
       openHours: '8:00 – 22:00 hằng ngày',
       isOpen: true,
       deliveryFee: 15000,
+      freeShipFrom: 100000,
       minOrder: 0,
-      announcement: 'Freeship cho đơn từ 150k trong tuần này!',
+      announcement: 'Freeship cho đơn từ 100k!',
+      // Tài khoản GIẢ chỉ để demo mã VietQR trên emulator — đổi thành tài khoản thật trong Cài đặt tiệm
+      bankBin: '970436',
+      bankAccount: '0123456789',
+      bankAccountName: 'TIEM NHA BONG DEMO',
       updatedAt: now,
     });
   });

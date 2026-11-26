@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/Button';
 import { TextAreaField } from '@/components/ui/FormField';
 import { StatusPill } from '@/components/shop/StatusPill';
 import { toast } from '@/stores/toast.store';
+import { optionsLabel } from '@/domain/options';
+import { PaymentBadge } from './PaymentBadge';
 
 function issueText(i: PriceIssue): string {
   switch (i.kind) {
@@ -16,6 +18,8 @@ function issueText(i: PriceIssue): string {
       return `${i.name}: đơn ghi ${formatPrice(i.orderPrice)}, menu ${formatPrice(i.menuPrice)}`;
     case 'unknown_product':
       return `${i.name}: không có trong menu`;
+    case 'unknown_option':
+      return `${i.name}: tuỳ chọn không còn trong menu`;
     case 'subtotal_mismatch':
       return `Tạm tính sai: đúng là ${formatPrice(i.expected)}, đơn ghi ${formatPrice(i.actual)}`;
     case 'total_mismatch':
@@ -29,12 +33,14 @@ export function OrderDetail({
   busy,
   onClose,
   onChange,
+  onTogglePaid,
 }: {
   order: Order | null;
   issues: PriceIssue[];
   busy: boolean;
   onClose: () => void;
   onChange: (o: Order, to: OrderStatus, note?: string) => void;
+  onTogglePaid: (o: Order) => void;
 }) {
   const [note, setNote] = useState('');
   useEffect(() => setNote(order?.staffNote ?? ''), [order?.id, order?.staffNote]);
@@ -54,8 +60,14 @@ export function OrderDetail({
         <div className="space-y-5">
           <div className="flex flex-wrap items-center gap-2">
             <StatusPill status={order.status} label={statusLabel(order.status, order.fulfillment)} />
+            <PaymentBadge order={order} />
             <span className="text-ink-soft">{formatDateTime(order.createdAt)}</span>
           </div>
+          {order.status !== 'cancelled' && (
+            <Button variant={order.paid ? 'secondary' : 'success'} size="sm" disabled={busy} onClick={() => onTogglePaid(order)}>
+              {order.paid ? 'Bỏ xác nhận đã thu tiền' : `Đã nhận ${formatPrice(order.total)}${order.paymentMethod === 'transfer' ? ' (chuyển khoản)' : ''}`}
+            </Button>
+          )}
 
           <section>
             <h3 className="text-lg">Khách hàng</h3>
@@ -83,10 +95,11 @@ export function OrderDetail({
           <section>
             <h3 className="text-lg">Món</h3>
             <ul className="mt-1 space-y-1">
-              {order.items.map((it) => (
-                <li key={it.productId} className="flex justify-between gap-3">
+              {order.items.map((it, i) => (
+                <li key={`${it.productId}-${i}`} className="flex justify-between gap-3">
                   <span>
                     <span className="font-bold tabular">{it.qty}×</span> {it.name}
+                    {it.options.length > 0 && <span className="block text-[0.85rem] text-ink-soft">{optionsLabel(it.options)}</span>}
                   </span>
                   <span className="tabular">{formatPrice(it.qty * it.price)}</span>
                 </li>
