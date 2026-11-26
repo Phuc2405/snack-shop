@@ -76,7 +76,7 @@ export function toSettings(d: Raw | undefined): ShopSettings {
 
 function toItem(v: unknown): OrderItem {
   const d = (v ?? {}) as Raw;
-  return { productId: str(d.productId), name: str(d.name), price: num(d.price), qty: num(d.qty, 1), options: toSelected(d.options) };
+  return { productId: str(d.productId), name: str(d.name), price: num(d.price), qty: num(d.qty, 1), options: toSelected(d.options), note: str(d.note) };
 }
 
 export function toOrder(id: string, d: Raw): Order {

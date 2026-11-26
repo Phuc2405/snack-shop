@@ -125,6 +125,7 @@ export default function OrderPage() {
               <span>
                 <span className="font-bold tabular">{it.qty}×</span> {it.name}
                 {it.options.length > 0 && <span className="block text-[0.85rem] text-ink-soft">{optionsLabel(it.options)}</span>}
+                {it.note && <span className="block text-[0.85rem] italic text-ink-soft">Ghi chú: {it.note}</span>}
               </span>
               <span className="tabular">{formatPrice(it.price * it.qty)}</span>
             </li>

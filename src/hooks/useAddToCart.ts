@@ -11,8 +11,8 @@ export function useAddToCart() {
   const addToCart = useCartStore((s) => s.add);
   const bumpCart = useUiStore((s) => s.bumpCart);
   return useCallback(
-    (p: Product, qty = 1, options: SelectedOption[] = []) => {
-      const r = addToCart(p, qty, options);
+    (p: Product, qty = 1, options: SelectedOption[] = [], note = '') => {
+      const r = addToCart(p, qty, options, note);
       const what = `${qty > 1 ? `${qty} ` : ''}${p.name}${options.length ? ` (${optionsLabel(options)})` : ''}`;
       if (r === 'added') {
         bumpCart();

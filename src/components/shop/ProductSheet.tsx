@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Dialog } from '@/components/ui/Dialog';
 import { Button } from '@/components/ui/Button';
 import { QtyStepper } from '@/components/ui/QtyStepper';
+import { TextAreaField } from '@/components/ui/FormField';
+import { MAX_NOTE } from '@/domain/cart';
+import { cleanText } from '@/lib/sanitize';
 import { CATEGORIES } from '@/config/catalog';
 import { defaultSelection, missingRequired, optionsTotal, toSelectedOptions, type Selection } from '@/domain/options';
 import { formatPrice } from '@/lib/format';
@@ -18,9 +21,11 @@ export function ProductSheet() {
   const add = useAddToCart();
   const [qty, setQty] = useState(1);
   const [sel, setSel] = useState<Selection>({});
+  const [note, setNote] = useState('');
 
   useEffect(() => {
     setQty(1);
+    setNote('');
     setSel(product ? defaultSelection(product) : {});
   }, [product]);
 
@@ -35,7 +40,7 @@ export function ProductSheet() {
       toast.error(`Bạn chọn giúp: ${missing.join(', ')}`);
       return;
     }
-    if (add(product, qty, options) !== 'unavailable') close();
+    if (add(product, qty, options, cleanText(note)) !== 'unavailable') close();
   };
 
   return (
@@ -69,6 +74,17 @@ export function ProductSheet() {
           </div>
           {product.options.length > 0 && product.available && (
             <OptionPicker groups={product.options} value={sel} onChange={setSel} missing={missing} />
+          )}
+          {product.available && (
+            <TextAreaField
+              label="Ghi chú cho món (không bắt buộc)"
+              rows={2}
+              maxLength={MAX_NOTE}
+              placeholder="VD: ít đá, không hành, tách riêng nước sốt…"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              hint="Cùng món nhưng ghi chú khác sẽ tách thành dòng riêng trong giỏ."
+            />
           )}
         </div>
       )}

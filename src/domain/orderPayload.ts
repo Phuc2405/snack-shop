@@ -39,6 +39,7 @@ export function buildOrderPayload(draft: OrderDraft, customerUid: string, code =
     price: l.price,
     qty: l.qty,
     options: l.options.map((o) => ({ group: o.group, choice: o.choice, name: o.name, price: o.price })),
+    note: l.note ?? '',
   }));
   const subtotal = subtotalOf(items);
   const deliveryFee = deliveryFeeFor(subtotal, draft.fulfillment, draft.settings);

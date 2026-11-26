@@ -1,4 +1,4 @@
-# Tiệm Ăn Vặt Nhà Bông 🧋
+# Con Nhà Bảy Food 🧋
 
 Trang bán đồ ăn vặt (trà sữa, nước, bánh, đồ ăn vặt) cho **một tiệm, nhiều khách**:
 khách xem menu và đặt món không cần tạo tài khoản; nhân viên nhận đơn **realtime** trên dashboard, xử lý đơn, quản lý món và cài đặt tiệm.

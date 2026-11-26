@@ -73,6 +73,7 @@ export function CartDrawer() {
                   <div className="min-w-0">
                     <p className="font-bold leading-snug">{l.name}</p>
                     {l.options.length > 0 && <p className="text-[0.85rem] leading-snug text-ink-soft">{optionsLabel(l.options)}</p>}
+                    {l.note && <p className="text-[0.85rem] italic leading-snug text-ink-soft">Ghi chú: {l.note}</p>}
                   </div>
                   <button
                     type="button"

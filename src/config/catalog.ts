@@ -13,7 +13,7 @@ export const CATEGORY_ORDER: Category[] = ['drink', 'cake', 'snack', 'combo'];
 
 /** Giá trị mặc định khi chưa có doc settings/shop (hoặc chưa kết nối Firebase). */
 export const DEFAULT_SETTINGS: ShopSettings = {
-  name: 'Tiệm Ăn Vặt Nhà Bông',
+  name: 'Con Nhà Bảy Food',
   tagline: 'Trà sữa mát lạnh, bánh ngọt mỗi ngày',
   hotline: '',
   address: '',

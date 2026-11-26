@@ -10,7 +10,7 @@ export const MAX_QTY_PER_ITEM = 20;
 export const MAX_LINES = 30; // khớp giới hạn items.size() <= 30 trong firestore.rules
 
 export interface CartLine {
-  /** productId + tuỳ chọn — cùng món khác tuỳ chọn là 2 dòng */
+  /** productId + tuỳ chọn + ghi chú — khác nhau dù chỉ 1 chi tiết là 2 dòng riêng */
   key: string;
   productId: string;
   name: string;
@@ -19,7 +19,21 @@ export interface CartLine {
   imageUrl: string;
   category: Product['category'];
   options: SelectedOption[];
+  /** Ghi chú riêng cho món, vd "ít đá", "không hành" */
+  note: string;
   qty: number;
+}
+
+export const MAX_NOTE = 100;
+
+/** Gọn khoảng trắng, cắt độ dài → "ít  đá " và "ít đá" là cùng 1 ghi chú */
+export const normalizeNote = (note: string) => note.replace(/\s+/g, ' ').trim().slice(0, MAX_NOTE);
+
+/** Khoá dòng giỏ: món + tuỳ chọn (không phụ thuộc thứ tự) + ghi chú (không phân biệt hoa thường) */
+export function cartLineKey(productId: string, options: Pick<SelectedOption, 'group' | 'choice'>[], note = ''): string {
+  const base = lineKey(productId, options);
+  const n = normalizeNote(note).toLowerCase();
+  return n ? `${base}#${n}` : base;
 }
 
 export type AddResult = 'added' | 'capped' | 'unavailable' | 'full';
@@ -29,9 +43,11 @@ export function addLine(
   p: Product,
   qty = 1,
   options: SelectedOption[] = [],
+  rawNote = '',
 ): { lines: CartLine[]; result: AddResult } {
   if (!p.available) return { lines, result: 'unavailable' };
-  const key = lineKey(p.id, options);
+  const note = normalizeNote(rawNote);
+  const key = cartLineKey(p.id, options, note);
   const existing = lines.find((l) => l.key === key);
   if (!existing && lines.length >= MAX_LINES) return { lines, result: 'full' };
   const wanted = (existing?.qty ?? 0) + qty;
@@ -43,6 +59,7 @@ export function addLine(
     imageUrl: p.imageUrl,
     category: p.category,
     options,
+    note,
     qty: Math.min(wanted, MAX_QTY_PER_ITEM),
   };
   return {
@@ -84,7 +101,31 @@ export function reconcileLines(lines: CartLine[], menu: Product[]): { lines: Car
     }
     const price = p.price + optionsTotal(options);
     if (price !== l.price) changes.push({ name: p.name, kind: 'price_changed' });
-    return [{ ...l, key: lineKey(p.id, options), name: p.name, price, options, imageUrl: p.imageUrl, category: p.category }];
+    return [{ ...l, key: cartLineKey(p.id, options, l.note ?? ''), note: l.note ?? '', name: p.name, price, options, imageUrl: p.imageUrl, category: p.category }];
   });
   return { lines: next, changes };
+}
+
+/**
+ * Gộp giỏ lúc đăng nhập: `account` = giỏ đã lưu của tài khoản, `guest` = giỏ vừa chọn khi chưa đăng nhập.
+ * - Cùng món + cùng tuỳ chọn + cùng ghi chú (cùng key) → giữ SỐ LƯỢNG LỚN HƠN (7 và 5 → 7), không cộng dồn.
+ * - Khác dù chỉ 1 chi tiết (size, % đường, topping, ghi chú) → 2 dòng riêng.
+ * - Món chỉ có ở một bên → thêm vào như thường (giữ thứ tự: giỏ tài khoản trước, món mới sau).
+ */
+export function mergeCarts(account: CartLine[], guest: CartLine[]): { lines: CartLine[]; merged: number; added: number; dropped: number } {
+  const lines = account.map((l) => ({ ...l }));
+  let merged = 0;
+  let added = 0;
+  let dropped = 0;
+  for (const g of guest) {
+    const same = lines.find((l) => l.key === g.key);
+    if (same) {
+      if (g.qty > same.qty) same.qty = Math.min(g.qty, MAX_QTY_PER_ITEM);
+      merged++;
+    } else if (lines.length < MAX_LINES) {
+      lines.push({ ...g });
+      added++;
+    } else dropped++;
+  }
+  return { lines, merged, added, dropped };
 }

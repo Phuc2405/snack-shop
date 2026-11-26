@@ -1,4 +1,4 @@
-import { Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Toaster } from '@/components/ui/Toaster';
 import { ConfirmHost } from '@/components/ui/ConfirmHost';
@@ -8,6 +8,7 @@ import { Footer } from '@/components/shop/Footer';
 import { CartDrawer } from '@/components/shop/CartDrawer';
 import { ProductSheet } from '@/components/shop/ProductSheet';
 import { MobileCartBar } from '@/components/shop/MobileCartBar';
+import { useUiStore } from '@/stores/ui.store';
 import { useShopStore } from '@/stores/shop.store';
 import { isFirebaseConfigured } from '@/lib/firebase';
 import { DEMO } from '@/lib/demo';
@@ -66,6 +67,22 @@ export function ShopLayout() {
       <CartDrawer />
       <ProductSheet />
       <MobileCartBar />
+      <AccountDialogs />
     </div>
+  );
+}
+
+// Hộp đăng nhập / sổ thông tin kéo theo react-hook-form + zod (~45 KB) → chỉ tải khi khách mở, không nằm trong bundle đầu
+const LoginDialog = lazy(() => import('@/components/shop/LoginDialog').then((m) => ({ default: m.LoginDialog })));
+const ProfilesDialog = lazy(() => import('@/components/shop/ProfilesDialog').then((m) => ({ default: m.ProfilesDialog })));
+
+function AccountDialogs() {
+  const loginOpen = useUiStore((s) => s.loginOpen);
+  const profilesOpen = useUiStore((s) => s.profilesOpen);
+  return (
+    <Suspense fallback={null}>
+      {loginOpen && <LoginDialog />}
+      {profilesOpen && <ProfilesDialog />}
+    </Suspense>
   );
 }

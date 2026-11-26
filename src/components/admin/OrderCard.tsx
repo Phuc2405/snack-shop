@@ -52,6 +52,7 @@ export const OrderCard = memo(function OrderCard({
           <li key={`${it.productId}-${i}`} className="leading-snug">
             <span className="font-bold tabular">{it.qty}×</span> {it.name}
             {it.options.length > 0 && <span className="block truncate pl-6 text-[0.85rem] text-ink-soft">{optionsLabel(it.options)}</span>}
+            {it.note && <span className="block truncate pl-6 text-[0.85rem] font-bold">Ghi chú: {it.note}</span>}
           </li>
         ))}
         {order.items.length > 4 && <li className="text-ink-faint">+{order.items.length - 4} món khác</li>}

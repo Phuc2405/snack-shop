@@ -85,6 +85,8 @@ export interface OrderItem {
   price: number;
   qty: number;
   options: SelectedOption[];
+  /** Ghi chú riêng cho món (có thể rỗng) */
+  note: string;
 }
 
 export interface CustomerInfo {

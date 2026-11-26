@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
-import { ChevronRight, ReceiptText } from 'lucide-react';
+import { ChevronRight, LogIn, ReceiptText } from 'lucide-react';
+import { useAccountStore } from '@/stores/account.store';
+import { useUiStore } from '@/stores/ui.store';
 import { orderRepo } from '@/services/order.repo';
 import { useAsync } from '@/hooks/useAsync';
 import { statusLabel } from '@/domain/orderStatus';
@@ -9,12 +11,28 @@ import { StatusPill } from '@/components/shop/StatusPill';
 import { formatDateTime, formatPrice } from '@/lib/format';
 
 export default function OrdersPage() {
-  const { data, loading, error, reload } = useAsync(() => orderRepo.listMine(), [], { pollMs: 30_000 });
+  const phone = useAccountStore((s) => s.phone);
+  const openLogin = useUiStore((s) => s.openLogin);
+  const { data, loading, error, reload } = useAsync(() => orderRepo.listMine(), [phone], { pollMs: 30_000, enabled: !!phone });
+
+  if (!phone) {
+    return (
+      <div className="shell max-w-2xl py-10">
+        <EmptyState
+          icon={<LogIn className="h-14 w-14 text-tangerine" strokeWidth={1.75} />}
+          title="Đăng nhập để xem đơn của bạn"
+          description="Đơn đã đặt được lưu theo tài khoản (số điện thoại)."
+          action={<Button onClick={() => openLogin()}>Đăng nhập</Button>}
+        />
+      </div>
+    );
+  }
+
 
   return (
     <div className="shell max-w-2xl py-6 sm:py-10">
       <h1 className="text-3xl sm:text-4xl">Đơn của tôi</h1>
-      <p className="mt-1 text-ink-soft">Đơn đã đặt trên thiết bị này.</p>
+      <p className="mt-1 text-ink-soft">Đơn đã đặt bằng tài khoản {phone}.</p>
       <div className="mt-6">
         {loading && !data ? (
           <div className="space-y-3" role="status" aria-label="Đang tải">

@@ -1,11 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { Link, NavLink } from 'react-router-dom';
-import { ReceiptText, ShoppingBasket } from 'lucide-react';
+import { LogIn, ReceiptText, ShoppingBasket } from 'lucide-react';
 import { useCartStore, selectCount } from '@/stores/cart.store';
 import { useShopStore } from '@/stores/shop.store';
 import { useUiStore } from '@/stores/ui.store';
 import { cn } from '@/lib/cn';
 import { BrandMark } from './BrandMark';
+import { AccountMenu } from './AccountMenu';
+import { useAccountStore } from '@/stores/account.store';
 
 export function Header() {
   const name = useShopStore((s) => s.settings.name);
@@ -13,6 +15,8 @@ export function Header() {
   const count = useCartStore(selectCount);
   const openCart = useUiStore((s) => s.openCart);
   const bump = useUiStore((s) => s.bump);
+  const openLogin = useUiStore((s) => s.openLogin);
+  const loggedIn = useAccountStore((s) => !!s.phone);
 
   // Chiều cao header thật (có/không có dòng thông báo, chữ to lên khi zoom) → biến CSS --header-h
   // để thanh chip danh mục dính ngay bên dưới, không bị che ở mọi kích thước màn hình.
@@ -47,11 +51,21 @@ export function Header() {
           </Link>
 
           <nav className="flex shrink-0 items-center gap-1 sm:gap-2" aria-label="Điều hướng chính">
-            <NavLink to="/orders" className={navCls}>
-              <ReceiptText className="h-5 w-5" strokeWidth={2.25} aria-hidden />
-              <span className="hidden sm:inline">Đơn của tôi</span>
-              <span className="sr-only sm:hidden">Đơn của tôi</span>
-            </NavLink>
+            {loggedIn ? (
+              <>
+                <NavLink to="/orders" className={navCls}>
+                  <ReceiptText className="h-5 w-5" strokeWidth={2.25} aria-hidden />
+                  <span className="hidden sm:inline">Đơn của tôi</span>
+                  <span className="sr-only sm:hidden">Đơn của tôi</span>
+                </NavLink>
+                <AccountMenu />
+              </>
+            ) : (
+              <button type="button" onClick={() => openLogin()} className={navCls({ isActive: false })}>
+                <LogIn className="h-5 w-5" strokeWidth={2.25} aria-hidden />
+                <span>Đăng nhập</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={openCart}

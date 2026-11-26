@@ -2,13 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowLeft, Banknote, Bike, QrCode, Store } from 'lucide-react';
+import { ArrowLeft, Banknote, Bike, ChevronRight, LogIn, MapPin, QrCode, Store, UserRound } from 'lucide-react';
 import { checkoutSchema, type CheckoutInput, type CheckoutValues } from '@/schemas/checkout.schema';
-import { TextAreaField, TextField } from '@/components/ui/FormField';
+import { TextAreaField } from '@/components/ui/FormField';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/Feedback';
 import { useCartStore, selectSubtotal } from '@/stores/cart.store';
 import { useShopStore } from '@/stores/shop.store';
+import { useAccountStore, selectActiveProfile } from '@/stores/account.store';
+import { useUiStore } from '@/stores/ui.store';
 import { toast } from '@/stores/toast.store';
 import { orderRepo } from '@/services/order.repo';
 import { toAppError } from '@/lib/errors';
@@ -18,16 +20,10 @@ import { deliveryFeeFor } from '@/domain/pricing';
 import { optionsLabel } from '@/domain/options';
 import { FreeShipHint } from '@/components/shop/FreeShipHint';
 
-const SAVED_KEY = 'nb-customer';
-
-function loadSaved(): Partial<CheckoutInput> {
-  try {
-    return JSON.parse(localStorage.getItem(SAVED_KEY) ?? '{}');
-  } catch {
-    return {};
-  }
-}
-
+/**
+ * Đặt món. Chưa đăng nhập: vẫn xem được đơn, chọn cách nhận / thanh toán / ghi chú — bấm "Đặt món" thì mời đăng nhập.
+ * Đã đăng nhập: thêm thẻ "Thông tin người đặt" (tên – SĐT – địa chỉ), bấm vào để đổi hoặc tạo mới.
+ */
 export default function CheckoutPage() {
   const lines = useCartStore((s) => s.lines);
   const subtotal = useCartStore(selectSubtotal);
@@ -35,11 +31,13 @@ export default function CheckoutPage() {
   const clear = useCartStore((s) => s.clear);
   const settings = useShopStore((s) => s.settings);
   const shopStatus = useShopStore((s) => s.status);
+  const profile = useAccountStore(selectActiveProfile);
+  const openLogin = useUiStore((s) => s.openLogin);
+  const openProfiles = useUiStore((s) => s.openProfiles);
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
   const lock = useRef(false); // chặn bấm 2 lần trước khi React kịp render lại
 
-  const saved = loadSaved();
   const {
     register,
     handleSubmit,
@@ -47,15 +45,7 @@ export default function CheckoutPage() {
     formState: { errors },
   } = useForm<CheckoutInput, unknown, CheckoutValues>({
     resolver: zodResolver(checkoutSchema),
-    defaultValues: {
-      name: saved.name ?? '',
-      phone: saved.phone ?? '',
-      address: saved.address ?? '',
-      fulfillment: saved.fulfillment ?? 'delivery',
-      paymentMethod: 'cod',
-      note: '',
-      remember: true,
-    },
+    defaultValues: { fulfillment: 'delivery', paymentMethod: 'cod', note: '' },
   });
   const fulfillment = watch('fulfillment');
   const paymentMethod = watch('paymentMethod');
@@ -87,6 +77,13 @@ export default function CheckoutPage() {
 
   const onSubmit = async (v: CheckoutValues) => {
     if (lock.current) return;
+    if (!profile) {
+      openLogin({
+        reason: 'Đăng nhập (tên, số điện thoại, địa chỉ) để tiệm biết giao cho ai. Giỏ hàng của bạn vẫn giữ nguyên.',
+        then: () => toast.info('Kiểm tra lại thông tin người đặt rồi bấm "Đặt món" nhé.'),
+      });
+      return;
+    }
     if (!settings.isOpen) return toast.error('Tiệm đang tạm nghỉ nhận đơn online.');
     if (belowMin) return toast.error(`Đơn tối thiểu ${formatPrice(settings.minOrder)}.`);
     lock.current = true;
@@ -97,11 +94,8 @@ export default function CheckoutPage() {
         fulfillment: v.fulfillment,
         paymentMethod: canTransfer ? v.paymentMethod : 'cod',
         settings,
-        customer: { name: v.name, phone: v.phone, address: v.address, note: v.note },
+        customer: { name: profile.name, phone: profile.phone, address: profile.address, note: v.note },
       });
-      if (v.remember) {
-        localStorage.setItem(SAVED_KEY, JSON.stringify({ name: v.name, phone: v.phone, address: v.address, fulfillment: v.fulfillment }));
-      } else localStorage.removeItem(SAVED_KEY);
       clear();
       navigate(`/orders/${order.id}`, { replace: true, state: { justPlaced: true } });
     } catch (e) {
@@ -127,6 +121,40 @@ export default function CheckoutPage() {
 
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-6 grid items-start gap-6 lg:grid-cols-[1fr_24rem]">
         <div className="sticker space-y-5 p-5 sm:p-7">
+          {profile ? (
+            <div>
+              <p className="label">Thông tin người đặt</p>
+              <button
+                type="button"
+                onClick={openProfiles}
+                className="flex w-full items-center gap-3 rounded-2xl border border-edge bg-white p-4 text-left transition-colors hover:bg-lemon-soft"
+                aria-label={`Thông tin người đặt: ${profile.name}, ${profile.phone}, ${profile.address}. Bấm để đổi hoặc tạo mới`}
+              >
+                <UserRound className="h-6 w-6 shrink-0" aria-hidden />
+                <span className="min-w-0 flex-1">
+                  <span className="block font-bold">
+                    {profile.name} <span className="font-normal text-ink-soft">·</span> <span className="tabular">{profile.phone}</span>
+                  </span>
+                  <span className="flex items-start gap-1.5 text-ink-soft">
+                    <MapPin className="mt-1 h-4 w-4 shrink-0" aria-hidden />
+                    <span className="min-w-0">{profile.address}</span>
+                  </span>
+                </span>
+                <span className="flex shrink-0 items-center gap-0.5 font-bold text-tangerine-deep">
+                  Đổi <ChevronRight className="h-5 w-5" aria-hidden />
+                </span>
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-dashed border-edge-strong bg-cream p-4">
+              <LogIn className="h-6 w-6 shrink-0" aria-hidden />
+              <p className="min-w-0 flex-1">Bạn chưa đăng nhập. Khi bấm “Đặt món”, bạn nhập tên, số điện thoại và địa chỉ một lần là xong.</p>
+              <Button variant="secondary" onClick={() => openLogin()}>
+                Đăng nhập
+              </Button>
+            </div>
+          )}
+
           <fieldset>
             <legend className="label">Nhận món bằng cách nào?</legend>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -177,42 +205,14 @@ export default function CheckoutPage() {
             </fieldset>
           )}
 
-          <div className="grid gap-5 sm:grid-cols-2">
-            <TextField label="Tên của bạn" autoComplete="name" maxLength={60} error={errors.name?.message} {...register('name')} />
-            <TextField
-              label="Số điện thoại"
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              maxLength={16}
-              placeholder="0901234567"
-              error={errors.phone?.message}
-              hint="Tiệm gọi xác nhận đơn qua số này"
-              {...register('phone')}
-            />
-          </div>
-          {fulfillment === 'delivery' && (
-            <TextField
-              label="Địa chỉ giao hàng"
-              autoComplete="street-address"
-              maxLength={200}
-              placeholder="Số nhà, đường, phường, quận"
-              error={errors.address?.message}
-              {...register('address')}
-            />
-          )}
           <TextAreaField
             label="Ghi chú cho tiệm (không bắt buộc)"
             rows={2}
             maxLength={300}
-            placeholder="VD: ít đá, ít ngọt, giao trước 12h…"
+            placeholder="VD: giao trước 12h, gọi trước khi tới…"
             error={errors.note?.message}
             {...register('note')}
           />
-          <label className="flex min-h-[2.75rem] cursor-pointer items-center gap-3">
-            <input type="checkbox" className="h-5 w-5 accent-ink" {...register('remember')} />
-            <span>Ghi nhớ thông tin trên máy này cho lần sau</span>
-          </label>
         </div>
 
         <aside className="sticker bg-lemon-soft p-5 sm:p-6 lg:sticky lg:top-[calc(var(--header-h,5rem)+1rem)]" aria-label="Tóm tắt đơn">
@@ -223,6 +223,7 @@ export default function CheckoutPage() {
                 <span>
                   <span className="font-bold tabular">{l.qty}×</span> {l.name}
                   {l.options.length > 0 && <span className="block text-[0.85rem] text-ink-soft">{optionsLabel(l.options)}</span>}
+                  {l.note && <span className="block text-[0.85rem] italic text-ink-soft">Ghi chú: {l.note}</span>}
                 </span>
                 <span className="shrink-0 tabular">{formatPrice(l.price * l.qty)}</span>
               </li>
@@ -266,6 +267,7 @@ export default function CheckoutPage() {
           <Button type="submit" size="lg" className="mt-5 w-full" loading={submitting} disabled={!settings.isOpen || belowMin}>
             {submitting ? 'Đang gửi đơn…' : `Đặt món · ${formatPrice(total)}`}
           </Button>
+          {!profile && <p className="mt-2 text-center text-[0.9rem] text-ink-soft">Bấm đặt món sẽ mời bạn đăng nhập trước.</p>}
         </aside>
       </form>
     </div>

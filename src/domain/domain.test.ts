@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import type { OptionGroup, Order, Product } from '@/types/domain';
-import { MAX_LINES, MAX_QTY_PER_ITEM, addLine, reconcileLines, setLineQty, subtotalOf, type CartLine } from './cart';
+import { MAX_LINES, MAX_QTY_PER_ITEM, addLine, mergeCarts, reconcileLines, setLineQty, subtotalOf, type CartLine } from './cart';
 import { NEXT_STATUSES, canTransition, nextForwardStatus } from './orderStatus';
 import { auditOrder, deliveryFeeFor, freeShipRemaining, makeOrderCode } from './pricing';
 import { DRINK_PRESET, defaultSelection, missingRequired, optionsTotal, toggleChoice, toSelectedOptions } from './options';
 import { buildVietQR, crc16ccitt, transferNote } from './vietqr';
 import { ORDER_FIELDS, buildOrderPayload } from './orderPayload';
-import { checkoutSchema, PHONE_RE } from '@/schemas/checkout.schema';
+import { checkoutSchema, profileSchema, PHONE_RE } from '@/schemas/checkout.schema';
 import { productSchema } from '@/schemas/product.schema';
 import { toOrder, toProduct } from '@/services/mappers';
 
@@ -26,6 +26,45 @@ const product = (over: Partial<Product> = {}): Product => ({
   options: [],
   updatedAt: null,
   ...over,
+});
+
+describe('gộp giỏ khi đăng nhập + ghi chú món', () => {
+  const tea = product({ options: DRINK_PRESET });
+  const sel = (sugar: string) => toSelectedOptions(tea, { ...defaultSelection(tea), sugar: [sugar] });
+
+  it('cùng món, cùng tuỳ chọn → giữ số lượng lớn hơn (7 và 5 → 7)', () => {
+    const acc = addLine([], tea, 7, sel('100')).lines;
+    const guest = addLine([], tea, 5, sel('100')).lines;
+    const r = mergeCarts(acc, guest);
+    expect(r.lines).toHaveLength(1);
+    expect(r.lines[0].qty).toBe(7);
+    expect(mergeCarts(guest, acc).lines[0].qty).toBe(7);
+  });
+
+  it('khác dù 1 tuỳ chọn (100% vs 70% đường) → 2 dòng', () => {
+    const r = mergeCarts(addLine([], tea, 7, sel('100')).lines, addLine([], tea, 5, sel('70')).lines);
+    expect(r.lines.map((l) => l.qty)).toEqual([7, 5]);
+  });
+
+  it('ghi chú khác → dòng riêng; ghi chú chỉ khác khoảng trắng/hoa thường → cùng dòng', () => {
+    let { lines } = addLine([], tea, 1, sel('100'), 'ít đá');
+    ({ lines } = addLine(lines, tea, 1, sel('100'), '  Ít   đá '));
+    expect(lines).toHaveLength(1);
+    expect(lines[0].qty).toBe(2);
+    ({ lines } = addLine(lines, tea, 1, sel('100'), 'không đá'));
+    expect(lines).toHaveLength(2);
+  });
+
+  it('món chưa có → thêm vào như thường; ghi chú đi theo đơn', () => {
+    const r = mergeCarts(addLine([], tea, 1, sel('100')).lines, addLine([], product({ id: 'p2', name: 'Flan' }), 2, [], 'thêm caramel').lines);
+    expect(r.added).toBe(1);
+    expect(r.lines[1].note).toBe('thêm caramel');
+    const payload = buildOrderPayload(
+      { lines: r.lines, customer: { name: 'Lan', phone: '0901234567', address: '', note: '' }, fulfillment: 'pickup', paymentMethod: 'cod', settings: { deliveryFee: 15000, freeShipFrom: 0 } },
+      'u1',
+    );
+    expect(payload.items[1].note).toBe('thêm caramel');
+  });
 });
 
 describe('giỏ hàng', () => {
@@ -141,23 +180,22 @@ describe('kiểm tra giá đơn (dashboard)', () => {
 });
 
 describe('form & validate (khớp rules)', () => {
-  const base = { name: 'Lan', phone: '090 123 4567', fulfillment: 'pickup' as const, paymentMethod: 'cod' as const, address: '', note: '', remember: true };
+  const who = { name: 'Lan', phone: '090 123 4567', address: '12 Lê Lợi, Q1' };
+  const base = { fulfillment: 'pickup' as const, paymentMethod: 'cod' as const, note: '' };
 
   it('chuẩn hoá số điện thoại, regex giống rules', () => {
-    const r = checkoutSchema.parse(base);
-    expect(r.phone).toBe('0901234567');
+    expect(profileSchema.parse(who).phone).toBe('0901234567');
     expect(rules).toContain(PHONE_RE.source.replace(/\\/g, '\\\\'));
   });
 
-  it('từ chối số điện thoại sai và thiếu địa chỉ khi giao hàng', () => {
-    expect(checkoutSchema.safeParse({ ...base, phone: '12345' }).success).toBe(false);
-    expect(checkoutSchema.safeParse({ ...base, fulfillment: 'delivery', address: '' }).success).toBe(false);
+  it('từ chối số điện thoại sai và địa chỉ quá ngắn', () => {
+    expect(profileSchema.safeParse({ ...who, phone: '12345' }).success).toBe(false);
+    expect(profileSchema.safeParse({ ...who, address: '' }).success).toBe(false);
   });
 
   it('bỏ thẻ HTML + ký tự điều khiển (phòng XSS lớp 2) và chặn CSV/Excel injection', () => {
-    const r = checkoutSchema.parse({ ...base, name: '<script>Lan</script>\u0007', note: 'Ít đá, ít ngọt <b>nhé</b>' });
-    expect(r.name).toBe('Lan');
-    expect(r.note).toBe('Ít đá, ít ngọt nhé');
+    expect(profileSchema.parse({ ...who, name: '<script>Lan</script>' }).name).toBe('Lan');
+    expect(checkoutSchema.parse({ ...base, note: 'Ít đá, ít ngọt <b>nhé</b>' }).note).toBe('Ít đá, ít ngọt nhé');
     expect(checkoutSchema.parse({ ...base, note: '=HYPERLINK("http://x")' }).note).toBe('HYPERLINK("http://x")');
     expect(checkoutSchema.parse({ ...base, note: '<img src=x onerror=alert(1)>ngon' }).note).toBe('ngon');
   });
