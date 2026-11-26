@@ -2,6 +2,7 @@ import { Clock, MapPin, Phone } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Wave } from '@/components/art/FoodArt';
 import { useShopStore } from '@/stores/shop.store';
+import { DEMO } from '@/lib/demo';
 
 export function Footer() {
   const s = useShopStore((st) => st.settings);
@@ -38,9 +39,11 @@ export function Footer() {
             )}
           </ul>
           <div className="text-ink-soft lg:text-right">
-            <Link to="/admin" className="inline-flex min-h-[2.75rem] items-center underline decoration-dotted underline-offset-4 hover:text-ink">
-              Dành cho nhân viên
-            </Link>
+            {!DEMO && (
+              <Link to="/admin" className="inline-flex min-h-[2.75rem] items-center underline decoration-dotted underline-offset-4 hover:text-ink">
+                Dành cho nhân viên
+              </Link>
+            )}
           </div>
         </div>
       </div>

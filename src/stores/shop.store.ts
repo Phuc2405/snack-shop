@@ -4,6 +4,7 @@ import { DEFAULT_SETTINGS } from '@/config/catalog';
 import { productRepo } from '@/services/product.repo';
 import { settingsRepo } from '@/services/settings.repo';
 import { isFirebaseConfigured } from '@/lib/firebase';
+import { DEMO } from '@/lib/demo';
 import type { AppError } from '@/lib/errors';
 import { toAppError } from '@/lib/errors';
 import { useCartStore } from './cart.store';
@@ -70,7 +71,7 @@ export const useShopStore = create<ShopState>()((set, get) => ({
   error: null,
 
   load: (opts) => {
-    if (!isFirebaseConfigured) {
+    if (!isFirebaseConfigured && !DEMO) {
       set({ status: 'error', error: toAppError({ code: 'NOT_CONFIGURED' }), stale: false });
       return Promise.resolve();
     }
