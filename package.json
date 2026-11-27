@@ -17,7 +17,7 @@
     "check:secrets": "node scripts/check-secrets.mjs",
     "check": "npm run check:secrets && npm run typecheck && npm test && npm run build && npm run check:security && npm run check:size",
     "deploy": "npm run check && firebase deploy --only hosting,firestore",
-    "build:demo": "tsc -b && vite build --mode demo && node -e \"require('fs').copyFileSync('vercel.json','dist/vercel.json')\"",
+    "build:demo": "tsc -b && vite build --mode demo && node -e \"const f=require('fs'),j=JSON.parse(f.readFileSync('vercel.json','utf8'));delete j.buildCommand;delete j.outputDirectory;f.writeFileSync('dist/vercel.json',JSON.stringify(j,null,2))\"",
     "deploy:demo": "npm run build:demo && vercel deploy dist --prod --yes",
     "check:security": "node scripts/check-security.mjs"
   },
