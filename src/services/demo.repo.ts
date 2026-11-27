@@ -1,13 +1,9 @@
 import type { Order, OrderStatus } from '@/types/domain';
 import { buildOrderPayload, type OrderDraft } from '@/domain/orderPayload';
 import { AppError } from '@/lib/errors';
-import { useAccountStore } from '@/stores/account.store';
 
-/** Đơn của bản demo gắn với SĐT đăng nhập → "Đơn của tôi" chỉ hiện đơn của đúng tài khoản */
-const currentUid = () => {
-  const phone = useAccountStore.getState().phone;
-  return phone ? `demo-${phone}` : null;
-};
+/** Bản demo không có tài khoản: đơn gắn với chính trình duyệt này (localStorage) */
+const currentUid = (): string | null => 'demo-device';
 
 /**
  * Repository đơn hàng cho bản DEMO: lưu trong localStorage của khách, không gửi đi đâu.
@@ -20,6 +16,8 @@ interface Stored {
   id: string;
   at: number;
   cancelled?: boolean;
+  cancelReason?: string;
+  cancelNote?: string;
   payload: ReturnType<typeof buildOrderPayload>;
 }
 
@@ -54,6 +52,8 @@ function toOrder(s: Stored, now = Date.now()): Order {
     // Giả lập tiệm xác nhận đã nhận chuyển khoản khi nhận đơn
     paid: s.payload.paymentMethod === 'transfer' && confirmed,
     cancelledBy: s.cancelled ? 'customer' : undefined,
+    cancelReason: s.cancelReason,
+    cancelNote: s.cancelNote,
     staffNote: status === 'delivering' ? 'Bản demo: shipper đang trên đường (giả lập).' : undefined,
     createdAt: new Date(s.at),
     updatedAt: new Date(now),
@@ -80,13 +80,15 @@ export const demoOrderRepo = {
     const s = readAll().find((o) => o.id === id && o.payload.customerUid === currentUid());
     return s ? toOrder(s) : null;
   },
-  async cancelMine(id: string): Promise<void> {
+  async cancelMine(id: string, reason: string, note = ''): Promise<void> {
     const list = readAll();
     const s = list.find((o) => o.id === id);
     if (!s || toOrder(s).status !== 'new') {
       throw new AppError('cannot-cancel', 'Tiệm đã nhận đơn nên không tự huỷ được nữa. Vui lòng gọi hotline.');
     }
     s.cancelled = true;
+    s.cancelReason = reason;
+    s.cancelNote = note || undefined;
     writeAll(list);
   },
 };

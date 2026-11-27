@@ -1,8 +1,12 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { mergeCarts } from '@/domain/cart';
-import { accountRepo, MAX_PROFILES, type AccountRecord, type Profile } from '@/services/account.repo';
+import type { Account, Address } from '@/types/domain';
 import type { ProfileValues } from '@/schemas/checkout.schema';
+import { accountCartRepo } from '@/services/account.repo';
+import { MAX_ADDRESSES } from '@/services/mappers';
+import { isFirebaseConfigured } from '@/lib/firebase';
+import { DEMO } from '@/lib/demo';
 import { autoId } from '@/lib/id';
 import { useCartStore } from './cart.store';
 
@@ -13,122 +17,173 @@ export interface LoginResult {
   added: number;
   /** Bị bỏ vì giỏ đã đủ số dòng tối đa */
   dropped: number;
-  returning: boolean;
 }
+
+/** Tải lười service (firebase/auth ~ 60 KB) → trang menu không phải tải khi khách chưa đụng tới tài khoản. */
+const svc = () => import('@/services/customer.service');
 
 interface AccountState {
-  /** SĐT đăng nhập; null = chưa đăng nhập */
-  phone: string | null;
-  profiles: Profile[];
-  activeId: string;
-  login: (v: ProfileValues) => LoginResult;
-  logout: () => void;
-  /** Tạo mới (không có id) hoặc sửa thông tin người đặt; luôn chọn nó làm thông tin đang dùng */
-  saveProfile: (v: ProfileValues, id?: string) => Profile;
-  selectProfile: (id: string) => void;
-  removeProfile: (id: string) => void;
+  /** 'idle' = chưa kiểm tra phiên đăng nhập (chưa tải firebase/auth) */
+  status: 'idle' | 'loading' | 'ready';
+  account: Account | null;
+  addresses: Address[];
+  defaultAddressId: string;
+  /** Bắt đầu theo dõi phiên (gọi khi cần biết chắc: có gợi ý đăng nhập cũ, mở trang đặt món / đơn của tôi). */
+  init: () => Promise<void>;
+  signIn: (email: string, password: string) => Promise<LoginResult>;
+  signUp: (email: string, password: string) => Promise<LoginResult>;
+  signOut: () => Promise<void>;
+  /** Thêm (không có id) hoặc sửa địa chỉ; luôn đặt làm mặc định. Trả về địa chỉ đã lưu. */
+  saveAddress: (v: ProfileValues, id?: string) => Promise<Address>;
+  removeAddress: (id: string) => Promise<void>;
+  setDefaultAddress: (id: string) => Promise<void>;
 }
 
-type Who = Pick<Profile, 'name' | 'phone' | 'address'>;
-const same = (a: Who, b: Who) =>
+const sameAddr = (a: ProfileValues, b: ProfileValues) =>
   a.phone === b.phone && a.name.toLowerCase() === b.name.toLowerCase() && a.address.toLowerCase() === b.address.toLowerCase();
 
-/** Ghi sổ thông tin người đặt vào tài khoản (giữ nguyên giỏ đã lưu) */
-function persistRecord(s: Pick<AccountState, 'phone' | 'profiles' | 'activeId'>) {
-  if (!s.phone) return;
-  const prev = accountRepo.get(s.phone);
-  accountRepo.save({ phone: s.phone, profiles: s.profiles, activeId: s.activeId, cart: prev?.cart ?? useCartStore.getState().lines });
-}
+let initPromise: Promise<void> | null = null;
 
 export const useAccountStore = create<AccountState>()(
   persist(
-    (set, get) => ({
-      phone: null,
-      profiles: [],
-      activeId: '',
-
-      login: (v) => {
-        const saved = accountRepo.get(v.phone);
-        const rec: AccountRecord = saved ?? { phone: v.phone, profiles: [], activeId: '', cart: [] };
-        let profile = rec.profiles.find((p) => same(p, v));
-        if (!profile) {
-          profile = { id: autoId(), ...v };
-          rec.profiles = [profile, ...rec.profiles].slice(0, MAX_PROFILES);
-        }
-        rec.activeId = profile.id;
-
-        // Giỏ lúc chưa đăng nhập gộp vào giỏ đã lưu của tài khoản (xem mergeCarts)
-        const r = mergeCarts(rec.cart ?? [], useCartStore.getState().lines);
-        rec.cart = r.lines;
-        accountRepo.save(rec);
-        set({ phone: rec.phone, profiles: rec.profiles, activeId: rec.activeId });
+    (set, get) => {
+      /** Sau khi có tài khoản: gộp giỏ đã cất của tài khoản với giỏ đang chọn, tải sổ địa chỉ. */
+      const afterLogin = async (account: Account): Promise<LoginResult> => {
+        const r = mergeCarts(accountCartRepo.get(account.uid), useCartStore.getState().lines);
         useCartStore.getState().replace(r.lines);
-        return { merged: r.merged, added: r.added, dropped: r.dropped, returning: !!saved };
-      },
+        set({ account, status: 'ready' });
+        await loadAddresses(account.uid);
+        return { merged: r.merged, added: r.added, dropped: r.dropped };
+      };
 
-      logout: () => {
-        const { phone } = get();
-        if (phone) {
-          const rec = accountRepo.get(phone);
-          if (rec) accountRepo.save({ ...rec, cart: useCartStore.getState().lines });
+      const loadAddresses = async (uid: string) => {
+        try {
+          const { userRepo } = await svc();
+          const d = await userRepo.get(uid);
+          if (get().account?.uid === uid) set({ addresses: d.addresses, defaultAddressId: d.defaultAddressId });
+        } catch {
+          /* mất mạng: giữ bản đã lưu trên máy */
         }
-        set({ phone: null, profiles: [], activeId: '' });
-        // Giỏ của tài khoản đã cất vào tài khoản → máy này về giỏ trống
-        useCartStore.getState().replace([]);
-      },
+      };
 
-      saveProfile: (v, id) => {
-        const s = get();
-        const existing = id ? s.profiles.find((p) => p.id === id) : undefined;
-        const dup = s.profiles.find((p) => p.id !== id && same(p, v));
-        const profile: Profile = dup ?? { id: existing?.id ?? autoId(), ...v };
-        const profiles = dup
-          ? s.profiles
-          : existing
-            ? s.profiles.map((p) => (p.id === id ? profile : p))
-            : [profile, ...s.profiles].slice(0, MAX_PROFILES);
-        set({ profiles, activeId: profile.id });
-        persistRecord(get());
-        return profile;
-      },
+      const persistAddresses = async (addresses: Address[], defaultAddressId: string) => {
+        const account = get().account;
+        if (!account) throw new Error('Chưa đăng nhập');
+        const prev = { addresses: get().addresses, defaultAddressId: get().defaultAddressId };
+        set({ addresses, defaultAddressId }); // lạc quan, lỗi thì trả lại
+        try {
+          const { userRepo } = await svc();
+          await userRepo.save(account.uid, { addresses, defaultAddressId });
+        } catch (e) {
+          set(prev);
+          throw e;
+        }
+      };
 
-      selectProfile: (id) => {
-        set({ activeId: id });
-        persistRecord(get());
-      },
+      return {
+        status: 'idle',
+        account: null,
+        addresses: [],
+        defaultAddressId: '',
 
-      removeProfile: (id) => {
-        const s = get();
-        const profiles = s.profiles.filter((p) => p.id !== id);
-        const first = profiles[0];
-        if (!first) return; // luôn giữ ít nhất 1
-        set({ profiles, activeId: s.activeId === id ? first.id : s.activeId });
-        persistRecord(get());
-      },
-    }),
+        init: () => {
+          if (DEMO || !isFirebaseConfigured) {
+            set({ status: 'ready', account: null });
+            return Promise.resolve();
+          }
+          initPromise ??= (async () => {
+            if (get().status === 'idle') set({ status: 'loading' });
+            const { customerService } = await svc();
+            await customerService.watch((account) => {
+              const prev = get().account;
+              if (!account) {
+                if (prev) accountCartRepo.save(prev.uid, useCartStore.getState().lines);
+                set({ account: null, addresses: [], defaultAddressId: '', status: 'ready' });
+                return;
+              }
+              set({ account, status: 'ready' });
+              if (prev?.uid !== account.uid) void loadAddresses(account.uid);
+            });
+          })();
+          return initPromise;
+        },
+
+        signIn: async (email, password) => {
+          const { customerService } = await svc();
+          return afterLogin(await customerService.signIn(email, password));
+        },
+
+        signUp: async (email, password) => {
+          const { customerService } = await svc();
+          return afterLogin(await customerService.signUp(email, password));
+        },
+
+        signOut: async () => {
+          const account = get().account;
+          // Cất giỏ vào tài khoản → máy này về giỏ trống (máy dùng chung không lộ giỏ người trước)
+          if (account) accountCartRepo.save(account.uid, useCartStore.getState().lines);
+          const { customerService } = await svc();
+          await customerService.signOut();
+          set({ account: null, addresses: [], defaultAddressId: '' });
+          useCartStore.getState().replace([]);
+        },
+
+        saveAddress: async (v, id) => {
+          const { addresses } = get();
+          const dup = addresses.find((a) => a.id !== id && sameAddr(a, v));
+          if (dup) {
+            await persistAddresses(addresses, dup.id);
+            return dup;
+          }
+          const existing = id ? addresses.find((a) => a.id === id) : undefined;
+          const saved: Address = { id: existing?.id ?? autoId().slice(0, 12), ...v };
+          const next = existing
+            ? addresses.map((a) => (a.id === id ? saved : a))
+            : [saved, ...addresses].slice(0, MAX_ADDRESSES);
+          await persistAddresses(next, saved.id);
+          return saved;
+        },
+
+        removeAddress: async (id) => {
+          const { addresses, defaultAddressId } = get();
+          const next = addresses.filter((a) => a.id !== id);
+          await persistAddresses(next, defaultAddressId === id ? (next[0]?.id ?? '') : defaultAddressId);
+        },
+
+        setDefaultAddress: async (id) => {
+          await persistAddresses(get().addresses, id);
+        },
+      };
+    },
     {
-      name: 'nb-session',
-      version: 1,
+      name: 'nb-account',
+      version: 2,
       storage: createJSONStorage(() => localStorage),
-      partialize: (s) => ({ phone: s.phone, profiles: s.profiles, activeId: s.activeId }),
+      // Chỉ là GỢI Ý để vẽ header ngay (không chờ tải firebase/auth); phiên thật được kiểm lại bằng init()
+      partialize: (s) => ({ account: s.account, addresses: s.addresses, defaultAddressId: s.defaultAddressId }),
+      migrate: () => ({ account: null, addresses: [], defaultAddressId: '' }) as never,
     },
   ),
 );
 
-/** Thông tin người đặt đang chọn (null nếu chưa đăng nhập) */
-export const selectActiveProfile = (s: AccountState): Profile | null =>
-  s.phone ? (s.profiles.find((p) => p.id === s.activeId) ?? s.profiles[0] ?? null) : null;
+/** Địa chỉ mặc định (null nếu chưa đăng nhập / sổ trống) */
+export const selectDefaultAddress = (s: AccountState): Address | null =>
+  s.account ? (s.addresses.find((a) => a.id === s.defaultAddressId) ?? s.addresses[0] ?? null) : null;
 
 if (typeof window !== 'undefined') {
-  // Đang đăng nhập: mọi thay đổi giỏ lưu luôn vào tài khoản (đăng xuất rồi đăng nhập lại vẫn còn)
+  // Đang đăng nhập: giỏ thay đổi thì cất luôn vào tài khoản (tắt trình duyệt rồi mở lại vẫn còn)
   useCartStore.subscribe((cart) => {
-    const { phone } = useAccountStore.getState();
-    if (!phone) return;
-    const rec = accountRepo.get(phone);
-    if (rec) accountRepo.save({ ...rec, cart: cart.lines });
+    const { account } = useAccountStore.getState();
+    if (account) accountCartRepo.save(account.uid, cart.lines);
   });
+  // Có gợi ý đã đăng nhập từ lần trước → kiểm tra phiên thật khi trình duyệt rảnh (không chặn lần vẽ đầu)
+  if (useAccountStore.getState().account) {
+    const start = () => void useAccountStore.getState().init();
+    if ('requestIdleCallback' in window) requestIdleCallback(start, { timeout: 3000 });
+    else setTimeout(start, 1500);
+  }
   // Đăng nhập / đăng xuất ở tab khác → tab này theo
   window.addEventListener('storage', (e) => {
-    if (e.key === 'nb-session') void useAccountStore.persist.rehydrate();
+    if (e.key === 'nb-account') void useAccountStore.persist.rehydrate();
   });
 }

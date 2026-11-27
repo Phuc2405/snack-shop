@@ -1,6 +1,6 @@
 import type { CustomerInfo, Fulfillment, PaymentMethod, ShopSettings } from '@/types/domain';
 import { countItems, subtotalOf, type CartLine } from './cart';
-import { deliveryFeeFor, makeOrderCode } from './pricing';
+import { deliveryFeeFor, makeOrderCode, shipsToDriver } from './pricing';
 
 /** Các field của doc order — PHẢI khớp `keys().hasOnly([...])` trong firestore.rules (có test). */
 export const ORDER_FIELDS = [
@@ -16,6 +16,7 @@ export const ORDER_FIELDS = [
   'status',
   'paymentMethod',
   'paid',
+  'shipToDriver',
   'createdAt',
   'updatedAt',
 ] as const;
@@ -25,7 +26,7 @@ export interface OrderDraft {
   customer: CustomerInfo;
   fulfillment: Fulfillment;
   paymentMethod: PaymentMethod;
-  settings: Pick<ShopSettings, 'deliveryFee' | 'freeShipFrom'>;
+  settings: Pick<ShopSettings, 'deliveryFee' | 'freeShipFrom' | 'shipFeeMode'>;
 }
 
 /**
@@ -61,5 +62,6 @@ export function buildOrderPayload(draft: OrderDraft, customerUid: string, code =
     status: 'new' as const,
     paymentMethod: draft.paymentMethod,
     paid: false,
+    shipToDriver: shipsToDriver(draft.fulfillment, draft.settings),
   };
 }

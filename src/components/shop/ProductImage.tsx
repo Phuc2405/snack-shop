@@ -3,20 +3,9 @@ import type { Product } from '@/types/domain';
 import { CATEGORIES } from '@/config/catalog';
 import { FoodArt } from '@/components/art/FoodArt';
 import { cn } from '@/lib/cn';
+import { responsiveSrc } from '@/lib/image';
 
-/**
- * Ảnh trên CDN Unsplash (imgix) → tạo srcset nhiều kích thước + định dạng tự động (AVIF/WebP):
- * điện thoại tải ảnh ~400px, máy tính ~800px, thay vì ảnh gốc vài MB. Ảnh khác giữ nguyên.
- */
-export function responsiveSrc(url: string, widths = [320, 480, 640, 960], ratio = 'square' as 'square' | 'wide') {
-  if (!url.startsWith('https://images.unsplash.com/')) return { src: url };
-  const [base, query = ''] = url.split('?');
-  // Giữ gợi ý cắt riêng của từng ảnh (vd ?crop=bottom); mặc định cắt giữa — món ăn thường nằm giữa khung
-  const crop = new URLSearchParams(query).get('crop');
-  const h = (w: number) => (ratio === 'square' ? w : Math.round((w * 9) / 16));
-  const at = (w: number) => `${base}?w=${w}&h=${h(w)}&fit=crop${crop ? `&crop=${encodeURIComponent(crop)}` : ''}&auto=format&q=68`;
-  return { src: at(widths[1] ?? 480), srcSet: widths.map((w) => `${at(w)} ${w}w`).join(', ') };
-}
+export { responsiveSrc } from '@/lib/image';
 
 /**
  * Ảnh món: ảnh chụp nếu có (lazy, giữ tỉ lệ vuông → không giật layout, nền màu chờ khi đang tải),
@@ -47,8 +36,9 @@ export function ProductImage({
           srcSet={img.srcSet}
           sizes={img.srcSet ? sizes : undefined}
           alt={product.name}
+          // eager: không trì hoãn ảnh đầu danh sách; nhưng KHÔNG fetchPriority="high" — chỉ ảnh banner (LCP) được ưu tiên,
+          // 4 ảnh món mà cùng "high" sẽ giành băng thông làm banner hiện chậm trên 4G
           loading={eager ? 'eager' : 'lazy'}
-          fetchPriority={eager ? 'high' : undefined}
           decoding="async"
           referrerPolicy="no-referrer"
           onLoad={() => setLoaded(true)}

@@ -38,7 +38,7 @@ export const OrderCard = memo(function OrderCard({
       </div>
 
       <div className="mt-3 flex items-center gap-2">
-        {order.fulfillment === 'delivery' ? <Bike className="h-5 w-5 shrink-0" aria-label="Giao hàng" /> : <Store className="h-5 w-5 shrink-0" aria-label="Khách lấy tại tiệm" />}
+        {order.fulfillment === 'delivery' ? <Bike className="h-5 w-5 shrink-0" aria-label="Đặt ship" /> : <Store className="h-5 w-5 shrink-0" aria-label="Khách lấy tại tiệm" />}
         <span className="min-w-0 truncate font-bold">{order.customer.name}</span>
         <a href={`tel:${order.customer.phone}`} className="ml-auto inline-flex min-h-[2.75rem] shrink-0 items-center gap-1 rounded-lg px-2 font-bold underline underline-offset-4 hover:bg-white">
           <Phone className="h-4 w-4" aria-hidden />
@@ -60,7 +60,8 @@ export const OrderCard = memo(function OrderCard({
       {order.customer.note && <p className="mt-2 rounded-lg bg-lemon-soft px-2 py-1 text-[0.95rem]">“{order.customer.note}”</p>}
       {issues.length > 0 && (
         <p className="mt-2 flex items-center gap-1.5 rounded-lg border-2 border-danger bg-danger-soft px-2 py-1 text-[0.9rem] font-bold text-danger">
-          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden /> Giá trong đơn khác menu, kiểm tra trước khi nhận
+          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />{' '}
+          {issues.every((i) => i.kind === 'unavailable') ? 'Có món đang tạm hết / ẩn, kiểm tra trước khi nhận' : 'Đơn không khớp menu, kiểm tra trước khi nhận'}
         </p>
       )}
 

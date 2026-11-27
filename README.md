@@ -41,11 +41,14 @@ Cần Node 20+ và **Java 11+** (cho Firebase Emulator).
 
 ```bash
 npm install
-npm run dev:emu                     # cửa sổ 1: Firestore + Auth emulator (UI: http://127.0.0.1:4000)
-npm run seed:emu                    # cửa sổ 2: tạo nhân viên demo + cấu hình tiệm
-npm run dev -- --mode emulator      # cửa sổ 2: http://localhost:5173
+npm run dev:local     # MỘT lệnh: bật emulator + tạo dữ liệu mẫu (12 món, tiệm đang nhận đơn) + mở web
 ```
-Đăng nhập `/admin/login` bằng tài khoản demo mà `seed:emu` in ra (chỉ tồn tại trên emulator) → **Món ăn → Tạo menu mẫu**.
+- Trang khách: http://localhost:5173 · Trang quản lý: http://localhost:5173/admin
+  · Xem/sửa DB: http://127.0.0.1:4000/firestore
+- **Tài khoản test** (1 quản lý + 3 khách, chỉ có trên emulator) và kịch bản test: [docs/TEST-ACCOUNTS.md](docs/TEST-ACCOUNTS.md)
+- DB emulator nằm trong RAM: tắt (Ctrl+C) là xoá sạch, chạy lại lệnh trên thì có lại dữ liệu mẫu.
+
+Chạy từng phần (nếu cần): `npm run dev:emu` (cửa sổ 1) → `npm run seed:emu` → `npm run dev -- --mode emulator`.
 
 ## Kết nối Firebase thật
 

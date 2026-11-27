@@ -44,5 +44,5 @@ jobs:
       - name: Test Firestore security rules (emulator)
         run: npm run test:rules
 
-      - name: Build + ngân sách dung lượng
-        run: npm run build && npm run check:size
+      - name: Build + kiểm tra cấu hình bảo mật + ngân sách dung lượng
+        run: npm run build && npm run check:security && npm run check:size

@@ -3,10 +3,11 @@ import { freeShipRemaining } from '@/domain/pricing';
 import { formatPrice } from '@/lib/format';
 import { useShopStore } from '@/stores/shop.store';
 
-/** "Mua thêm 25.000đ để được freeship" + thanh tiến độ. Ẩn khi tiệm không bật freeship. */
+/** "Mua thêm 25.000đ để được freeship" + thanh tiến độ. Ẩn khi tiệm không bật freeship hoặc phí ship trả tài xế. */
 export function FreeShipHint({ subtotal }: { subtotal: number }) {
   const freeShipFrom = useShopStore((s) => s.settings.freeShipFrom);
-  if (freeShipFrom <= 0) return null;
+  const driverPays = useShopStore((s) => s.settings.shipFeeMode === 'driver');
+  if (freeShipFrom <= 0 || driverPays) return null;
   const remaining = freeShipRemaining(subtotal, { freeShipFrom });
   const pct = Math.min(100, Math.round((subtotal / freeShipFrom) * 100));
   return (

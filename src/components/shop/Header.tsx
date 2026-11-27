@@ -1,13 +1,17 @@
-import { useEffect, useRef } from 'react';
+import { lazy, Suspense, useEffect, useRef } from 'react';
 import { Link, NavLink } from 'react-router-dom';
-import { LogIn, ReceiptText, ShoppingBasket } from 'lucide-react';
+import { LayoutDashboard, LogIn, ReceiptText, ShoppingBasket } from 'lucide-react';
 import { useCartStore, selectCount } from '@/stores/cart.store';
 import { useShopStore } from '@/stores/shop.store';
 import { useUiStore } from '@/stores/ui.store';
 import { cn } from '@/lib/cn';
 import { BrandMark } from './BrandMark';
-import { AccountMenu } from './AccountMenu';
+
 import { useAccountStore } from '@/stores/account.store';
+import { DEMO } from '@/lib/demo';
+
+// Hộp tài khoản chỉ cần khi đã đăng nhập → tách chunk, khách vãng lai không phải tải (ngân sách JS lần đầu)
+const AccountMenu = lazy(() => import('./AccountMenu').then((m) => ({ default: m.AccountMenu })));
 
 export function Header() {
   const name = useShopStore((s) => s.settings.name);
@@ -16,7 +20,8 @@ export function Header() {
   const openCart = useUiStore((s) => s.openCart);
   const bump = useUiStore((s) => s.bump);
   const openLogin = useUiStore((s) => s.openLogin);
-  const loggedIn = useAccountStore((s) => !!s.phone);
+  const loggedIn = useAccountStore((s) => !!s.account);
+  const isStaff = useAccountStore((s) => !!s.account?.isStaff);
 
   // Chiều cao header thật (có/không có dòng thông báo, chữ to lên khi zoom) → biến CSS --header-h
   // để thanh chip danh mục dính ngay bên dưới, không bị che ở mọi kích thước màn hình.
@@ -36,35 +41,48 @@ export function Header() {
     );
 
   return (
-    <header ref={ref} className="sticky top-0 z-40">
+    <header ref={ref} className="vt-header sticky top-0 z-40 [@media(max-height:500px)]:static">
       {announcement && (
         <p className="bg-ink px-4 py-1.5 text-center text-[0.9rem] font-bold text-cream">{announcement}</p>
       )}
-      <div className="border-b border-edge bg-cream/90 backdrop-blur-md">
+      <div className="border-b border-edge bg-cream">
         <div className="shell flex h-16 items-center justify-between gap-2 sm:h-[4.5rem] sm:gap-3">
-          <Link to="/" className="flex min-h-[2.75rem] min-w-[2.75rem] items-center gap-2 sm:gap-2.5" aria-label={`${name}, về trang chủ`}>
+          <Link viewTransition to="/" className="flex min-h-[2.75rem] min-w-[2.75rem] items-center gap-2 sm:gap-2.5" aria-label={`${name}, về trang chủ`}>
             <BrandMark className="h-9 w-9 shrink-0 sm:h-11 sm:w-11" />
             {/* Tên dài thì xuống 2 dòng thay vì bị cắt "Tiệm Ă…" trên điện thoại */}
-            <span className="hidden text-base font-bold leading-tight min-[360px]:line-clamp-2 sm:text-xl" aria-hidden>
+            <span className="hidden min-w-0 text-base font-bold leading-tight min-[360px]:line-clamp-2 sm:line-clamp-1 sm:text-xl" aria-hidden>
               {name}
             </span>
           </Link>
 
           <nav className="flex shrink-0 items-center gap-1 sm:gap-2" aria-label="Điều hướng chính">
+            {isStaff && (
+              <Link viewTransition to="/admin" className={cn(navCls({ isActive: false }), 'bg-tangerine-soft')}>
+                <LayoutDashboard className="h-5 w-5" strokeWidth={2.25} aria-hidden />
+                <span className="hidden sm:inline">Quản lý</span>
+                <span className="sr-only sm:hidden">Quản lý</span>
+              </Link>
+            )}
+            {/* "Đơn của tôi" chỉ hiện khi đã đăng nhập (bản demo không có tài khoản → luôn hiện đơn trên máy) */}
+            {(loggedIn || DEMO) && (
+              <NavLink viewTransition to="/orders" className={navCls}>
+                <ReceiptText className="h-5 w-5" strokeWidth={2.25} aria-hidden />
+                <span className="hidden sm:inline">Đơn của tôi</span>
+                <span className="sr-only sm:hidden">Đơn của tôi</span>
+              </NavLink>
+            )}
             {loggedIn ? (
-              <>
-                <NavLink to="/orders" className={navCls}>
-                  <ReceiptText className="h-5 w-5" strokeWidth={2.25} aria-hidden />
-                  <span className="hidden sm:inline">Đơn của tôi</span>
-                  <span className="sr-only sm:hidden">Đơn của tôi</span>
-                </NavLink>
+              <Suspense fallback={<span className="inline-block h-11 w-11" aria-hidden />}>
                 <AccountMenu />
-              </>
+              </Suspense>
             ) : (
-              <button type="button" onClick={() => openLogin()} className={navCls({ isActive: false })}>
-                <LogIn className="h-5 w-5" strokeWidth={2.25} aria-hidden />
-                <span>Đăng nhập</span>
-              </button>
+              !DEMO && (
+                <button type="button" onClick={() => openLogin()} className={navCls({ isActive: false })}>
+                  <LogIn className="h-5 w-5" strokeWidth={2.25} aria-hidden />
+                  <span className="hidden min-[400px]:inline">Đăng nhập</span>
+                  <span className="sr-only min-[400px]:hidden">Đăng nhập</span>
+                </button>
+              )
             )}
             <button
               type="button"

@@ -13,6 +13,10 @@ const { serverTimestamp } = firebase.firestore.FieldValue;
 const { Timestamp } = firebase.firestore;
 
 let env;
+const [EMU_HOST, EMU_PORT] = (() => {
+  const [h, p] = (process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080').split(':');
+  return [h === 'localhost' ? '127.0.0.1' : h, Number(p)];
+})();
 
 const ANON = { firebase: { sign_in_provider: 'anonymous' } };
 const PASSWORD = { firebase: { sign_in_provider: 'password' }, email: 'staff@shop.vn' };
@@ -21,6 +25,8 @@ const guest = () => env.unauthenticatedContext().firestore();
 const anon = (uid = 'cust1') => env.authenticatedContext(uid, ANON).firestore();
 const staff = () => env.authenticatedContext('staff1', PASSWORD).firestore();
 const notStaff = () => env.authenticatedContext('random', PASSWORD).firestore();
+/** Khách có tài khoản email/mật khẩu (không phải nhân viên) */
+const member = (uid = 'mem1') => env.authenticatedContext(uid, { firebase: { sign_in_provider: 'password' }, email: uid + '@khach.vn' }).firestore();
 
 const SHOP = {
   name: 'Tiệm test',
@@ -47,6 +53,7 @@ const product = (over = {}) => ({
   available: true,
   featured: false,
   sortOrder: 1,
+  hidden: false,
   createdAt: serverTimestamp(),
   updatedAt: serverTimestamp(),
   ...over,
@@ -65,6 +72,7 @@ const order = (uid = 'cust1', over = {}) => ({
   status: 'new',
   paymentMethod: 'cod',
   paid: false,
+  shipToDriver: false,
   createdAt: serverTimestamp(),
   updatedAt: serverTimestamp(),
   ...over,
@@ -85,7 +93,8 @@ async function seed(fn) {
 before(async () => {
   env = await initializeTestEnvironment({
     projectId: 'demo-snack-shop',
-    firestore: { rules: readFileSync('firestore.rules', 'utf8'), host: '127.0.0.1', port: 8080 },
+    // emulators:exec tự đặt FIRESTORE_EMULATOR_HOST → chạy được trên cổng khác khi 8080 đang bận (npm run dev:local)
+    firestore: { rules: readFileSync('firestore.rules', 'utf8'), host: EMU_HOST, port: EMU_PORT },
   });
 });
 after(async () => env?.cleanup());
@@ -100,12 +109,14 @@ beforeEach(async () => {
 });
 
 describe('products', () => {
-  it('khách vãng lai xem được menu (có limit)', async () => {
-    await assertSucceeds(guest().collection('products').limit(50).get());
+  it('khách vãng lai xem được menu (lọc món đang hiện + có limit)', async () => {
+    await assertSucceeds(guest().collection('products').where('hidden', '==', false).limit(50).get());
     await assertSucceeds(guest().doc('products/p1').get());
   });
-  it('truy vấn không có limit bị từ chối (chống đọc vô hạn)', async () => {
-    await assertFails(guest().collection('products').get());
+  it('truy vấn không có limit / không lọc món ẩn bị từ chối', async () => {
+    await assertFails(guest().collection('products').where('hidden', '==', false).get());
+    await assertFails(guest().collection('products').limit(50).get());
+    await assertFails(member().collection('products').limit(50).get());
   });
   it('khách không sửa / tạo / xoá món được', async () => {
     await assertFails(anon().doc('products/p1').update({ price: 1, updatedAt: serverTimestamp() }));
@@ -255,7 +266,7 @@ describe('orders: cập nhật', () => {
       await db.doc('orders/o2').set({ ...order('cust1', { status: 'confirmed' }), createdAt: Timestamp.now(), updatedAt: Timestamp.now() });
     });
   });
-  const cancel = { status: 'cancelled', cancelledBy: 'customer', updatedAt: serverTimestamp() };
+  const cancel = { status: 'cancelled', cancelledBy: 'customer', cancelReason: 'changed_mind', updatedAt: serverTimestamp() };
 
   it('khách tự huỷ đơn còn "new" được', async () => {
     await assertSucceeds(anon('cust1').doc('orders/o1').update(cancel));
@@ -278,8 +289,8 @@ describe('orders: cập nhật', () => {
     await assertFails(staff().doc('orders/o1').delete());
   });
   it('nhân viên huỷ đơn phải ghi cancelledBy = shop', async () => {
-    await assertSucceeds(staff().doc('orders/o1').update({ status: 'cancelled', cancelledBy: 'shop', updatedAt: serverTimestamp() }));
-    await assertFails(staff().doc('orders/o2').update({ status: 'cancelled', cancelledBy: 'customer', updatedAt: serverTimestamp() }));
+    await assertSucceeds(staff().doc('orders/o1').update({ status: 'cancelled', cancelledBy: 'shop', cancelReason: 'sold_out', updatedAt: serverTimestamp() }));
+    await assertFails(staff().doc('orders/o2').update({ status: 'cancelled', cancelledBy: 'customer', cancelReason: 'sold_out', updatedAt: serverTimestamp() }));
   });
   it('người ngoài không đổi được trạng thái', async () => {
     await assertFails(notStaff().doc('orders/o1').update({ status: 'confirmed', updatedAt: serverTimestamp() }));
@@ -360,5 +371,176 @@ describe('tuỳ chọn món', () => {
     await assertSucceeds(staff().collection('products').add(product({ options: [group(1), group(2)] })));
     await assertFails(staff().collection('products').add(product({ options: Array.from({ length: 9 }, (_, i) => group(i)) })));
     await assertFails(staff().collection('products').add(product({ options: 'size L' })));
+  });
+});
+
+describe('ẩn / hiện món', () => {
+  beforeEach(() => seed((db) => db.doc('products/secret').set({ ...product({ name: 'Món ẩn', hidden: true }), createdAt: Timestamp.now(), updatedAt: Timestamp.now() })));
+  it('khách (vãng lai, ẩn danh, có tài khoản) KHÔNG đọc được món ẩn, kể cả gọi thẳng theo id', async () => {
+    for (const db of [guest(), anon(), member()]) {
+      await assertFails(db.doc('products/secret').get());
+      await assertFails(db.collection('products').where('hidden', '==', true).limit(10).get());
+    }
+  });
+  it('nhân viên thấy mọi món (kể cả ẩn) và bật/tắt ẩn được', async () => {
+    await assertSucceeds(staff().collection('products').limit(200).get());
+    await assertSucceeds(staff().doc('products/secret').get());
+    await assertSucceeds(staff().doc('products/secret').update({ hidden: false, updatedAt: serverTimestamp() }));
+    await assertSucceeds(staff().doc('products/p1').update({ hidden: true, updatedAt: serverTimestamp() }));
+  });
+  it('món phải có field hidden kiểu bool', async () => {
+    const { hidden, ...noHidden } = product();
+    await assertFails(staff().collection('products').add(noHidden));
+    await assertFails(staff().collection('products').add(product({ hidden: 'yes' })));
+  });
+  it('ẩn món không làm mất đơn cũ có món đó', async () => {
+    await seed((db) => db.doc('orders/old').set({ ...order('mem1'), createdAt: Timestamp.now(), updatedAt: Timestamp.now() }));
+    await assertSucceeds(staff().doc('products/p1').update({ hidden: true, updatedAt: serverTimestamp() }));
+    await assertSucceeds(member('mem1').doc('orders/old').get());
+  });
+});
+
+describe('tài khoản khách (email/mật khẩu) & sổ địa chỉ users/{uid}', () => {
+  const addr = (i = 1, over = {}) => ({ id: 'a' + i, name: 'Lan ' + i, phone: '0901234567', address: '12 Lê Lợi, Q1', ...over });
+  const userDoc = (addresses = [addr()], over = {}) => ({ addresses, defaultAddressId: addresses[0]?.id ?? '', updatedAt: serverTimestamp(), ...over });
+
+  it('chính chủ tạo / đọc / sửa / xoá sổ địa chỉ được', async () => {
+    const db = member('mem1');
+    await assertSucceeds(db.doc('users/mem1').set(userDoc()));
+    await assertSucceeds(db.doc('users/mem1').get());
+    await assertSucceeds(db.doc('users/mem1').set(userDoc([addr(1), addr(2)])));
+    await assertSucceeds(db.doc('users/mem1').set(userDoc([])));
+    await assertSucceeds(db.doc('users/mem1').delete());
+  });
+  it('người khác, nhân viên, phiên ẩn danh, chưa đăng nhập: không đọc/ghi được', async () => {
+    await seed((db) => db.doc('users/mem1').set({ addresses: [addr()], defaultAddressId: 'a1', updatedAt: Timestamp.now() }));
+    for (const db of [member('mem2'), staff(), anon('mem1'), guest()]) {
+      await assertFails(db.doc('users/mem1').get());
+      await assertFails(db.doc('users/mem1').set(userDoc()));
+    }
+    await assertFails(member('mem1').collection('users').limit(10).get());
+  });
+  it('dữ liệu sai bị từ chối (field lạ, quá 5 địa chỉ, SĐT sai, tên rỗng, chuỗi quá dài)', async () => {
+    const db = member('mem1');
+    await assertFails(db.doc('users/mem1').set(userDoc([addr()], { isAdmin: true })));
+    await assertFails(db.doc('users/mem1').set(userDoc([1, 2, 3, 4, 5, 6].map((i) => addr(i)))));
+    await assertFails(db.doc('users/mem1').set(userDoc([addr(1, { phone: '<script>' })])));
+    await assertFails(db.doc('users/mem1').set(userDoc([addr(1, { name: '' })])));
+    await assertFails(db.doc('users/mem1').set(userDoc([addr(1, { address: 'x'.repeat(201) })])));
+    await assertFails(db.doc('users/mem1').set(userDoc([addr(1, { role: 'admin' })])));
+    await assertFails(db.doc('users/mem1').set(userDoc([addr(1), addr(2), addr(3), addr(4), addr(5, { phone: '1' })])));
+    await assertFails(db.doc('users/mem1').set(userDoc([addr()], { updatedAt: Timestamp.fromDate(new Date(2000, 1, 1)) })));
+  });
+  it('khách có tài khoản KHÔNG có quyền quản lý (không leo thang quyền)', async () => {
+    const db = member('mem1');
+    await assertFails(db.collection('products').add(product()));
+    await assertFails(db.doc('products/p1').update({ price: 1, updatedAt: serverTimestamp() }));
+    await assertFails(db.doc('settings/shop').set({ ...SHOP, updatedAt: serverTimestamp() }));
+    await assertFails(db.doc('staff/mem1').set({ name: 'tôi là admin' }));
+    await assertFails(db.collection('orders').limit(10).get());
+  });
+  it('khách có tài khoản đặt đơn đứng tên mình, xem đơn mình, không xem đơn người khác', async () => {
+    await assertSucceeds(placeOrder(member('mem1'), 'mem1', 'o1', order('mem1')));
+    await assertSucceeds(member('mem1').collection('orders').where('customerUid', '==', 'mem1').limit(20).get());
+    await assertFails(member('mem2').doc('orders/o1').get());
+  });
+});
+
+describe('đặt ship: phí trả tài xế / bắt chuyển khoản trước', () => {
+  const ship = (over = {}) => order('cust1', over);
+  it('mặc định (đồng giá): shipToDriver phải false', async () => {
+    await assertFails(placeOrder(anon(), 'cust1', 'o1', ship({ shipToDriver: true })));
+  });
+  it('khách trả tài xế: phí ship = 0, total = tiền món, shipToDriver = true', async () => {
+    await seed((db) => db.doc('settings/shop').update({ shipFeeMode: 'driver' }));
+    await assertSucceeds(placeOrder(anon(), 'cust1', 'o1', ship({ deliveryFee: 0, total: 60000, shipToDriver: true })));
+  });
+  it('khách trả tài xế mà vẫn cộng phí ship / thiếu cờ → từ chối', async () => {
+    await seed((db) => db.doc('settings/shop').update({ shipFeeMode: 'driver' }));
+    await assertFails(placeOrder(anon(), 'cust1', 'o1', ship({ shipToDriver: true })));
+    await assertFails(placeOrder(anon(), 'cust1', 'o1', ship({ deliveryFee: 0, total: 60000, shipToDriver: false })));
+  });
+  it('bắt chuyển khoản trước: đơn ship tiền mặt bị từ chối, chuyển khoản được, ghé lấy tiền mặt vẫn được', async () => {
+    await seed((db) => db.doc('settings/shop').update({ shipPrepaid: true, bankBin: '970436', bankAccount: '0123456789' }));
+    await assertFails(placeOrder(anon(), 'cust1', 'o1', ship()));
+    await assertSucceeds(placeOrder(anon('c2'), 'c2', 'o2', order('c2', { paymentMethod: 'transfer' })));
+    const pickup = order('c3', { fulfillment: 'pickup', deliveryFee: 0, total: 60000, customer: { name: 'Lan', phone: '0901234567', address: '', note: '' } });
+    await assertSucceeds(placeOrder(anon('c3'), 'c3', 'o3', pickup));
+  });
+  it('cài đặt: bật chuyển khoản trước khi chưa có tài khoản ngân hàng / chế độ lạ → từ chối', async () => {
+    const base = { ...SHOP, updatedAt: serverTimestamp() };
+    await assertFails(staff().doc('settings/shop').set({ ...base, shipPrepaid: true }));
+    await assertSucceeds(staff().doc('settings/shop').set({ ...base, shipPrepaid: true, bankBin: '970436', bankAccount: '0123456789' }));
+    await assertFails(staff().doc('settings/shop').set({ ...base, shipFeeMode: 'free' }));
+    await assertSucceeds(staff().doc('settings/shop').set({ ...base, shipFeeMode: 'driver', shipPrepaid: false }));
+  });
+});
+
+describe('đơn lớn: không chạm giới hạn 1000 biểu thức của rules', () => {
+  // Firestore dừng đánh giá rules ở 1000 biểu thức / request → rules phình to có thể từ chối nhầm đơn HỢP LỆ.
+  // Giữ ca 30 dòng (MAX_LINES) có tuỳ chọn + ghi chú để thêm điều kiện mới vào validNewOrder là biết ngay.
+  it('30 dòng món (tối đa), mỗi dòng có tuỳ chọn + ghi chú → vẫn đặt được', async () => {
+    const items = Array.from({ length: 30 }, (_, i) => ({
+      productId: 'p' + i,
+      name: 'Trà sữa ' + i,
+      price: 30000,
+      qty: 1,
+      options: [
+        { group: 'size', choice: 'm', name: 'Size M', price: 0 },
+        { group: 'sugar', choice: '50', name: '50% đường', price: 0 },
+      ],
+      note: 'ít đá',
+    }));
+    const big = order('cust1', { items, itemCount: 30, subtotal: 900000, deliveryFee: 15000, total: 915000 });
+    await assertSucceeds(placeOrder(anon(), 'cust1', 'big', big));
+  });
+  it('30 dòng + khách có tài khoản + đặt ship trả tài xế + bắt chuyển khoản → vẫn đặt được', async () => {
+    await seed((db) => db.doc('settings/shop').update({ shipFeeMode: 'driver', shipPrepaid: true, bankBin: '970436', bankAccount: '0123456789' }));
+    const items = Array.from({ length: 30 }, (_, i) => ({ productId: 'p' + i, name: 'Món ' + i, price: 10000, qty: 2, options: [], note: '' }));
+    const big = order('mem1', { items, itemCount: 60, subtotal: 600000, deliveryFee: 0, total: 600000, paymentMethod: 'transfer', shipToDriver: true });
+    await assertSucceeds(placeOrder(member('mem1'), 'mem1', 'big2', big));
+  });
+});
+
+describe('huỷ đơn: bắt buộc lý do, ghi chú tuỳ chọn', () => {
+  beforeEach(async () => {
+    await seed(async (db) => {
+      await db.doc('orders/o1').set({ ...order('cust1'), createdAt: Timestamp.now(), updatedAt: Timestamp.now() });
+      await db.doc('orders/o2').set({ ...order('cust1', { status: 'confirmed' }), createdAt: Timestamp.now(), updatedAt: Timestamp.now() });
+    });
+  });
+  const byCustomer = (over = {}) => ({ status: 'cancelled', cancelledBy: 'customer', updatedAt: serverTimestamp(), ...over });
+  const byShop = (over = {}) => ({ status: 'cancelled', cancelledBy: 'shop', updatedAt: serverTimestamp(), ...over });
+
+  it('khách: thiếu lý do / lý do lạ / lý do của tiệm → từ chối', async () => {
+    await assertFails(anon('cust1').doc('orders/o1').update(byCustomer()));
+    await assertFails(anon('cust1').doc('orders/o1').update(byCustomer({ cancelReason: '' })));
+    await assertFails(anon('cust1').doc('orders/o1').update(byCustomer({ cancelReason: 'hack' })));
+    await assertFails(anon('cust1').doc('orders/o1').update(byCustomer({ cancelReason: 'sold_out' })));
+  });
+  it('khách: có lý do → được; ghi chú tuỳ chọn, tối đa 200 ký tự', async () => {
+    await assertFails(anon('cust1').doc('orders/o1').update(byCustomer({ cancelReason: 'wrong_items', cancelNote: 'x'.repeat(201) })));
+    await assertSucceeds(anon('cust1').doc('orders/o1').update(byCustomer({ cancelReason: 'wrong_items', cancelNote: 'Đặt nhầm size' })));
+  });
+  it('"Lý do khác" bắt buộc ghi chú (≥ 3 ký tự)', async () => {
+    await assertFails(anon('cust1').doc('orders/o1').update(byCustomer({ cancelReason: 'other' })));
+    await assertFails(anon('cust1').doc('orders/o1').update(byCustomer({ cancelReason: 'other', cancelNote: 'a' })));
+    await assertSucceeds(anon('cust1').doc('orders/o1').update(byCustomer({ cancelReason: 'other', cancelNote: 'Đi công tác đột xuất' })));
+  });
+  it('tiệm: thiếu lý do / lý do của khách → từ chối; lý do của tiệm → được', async () => {
+    await assertFails(staff().doc('orders/o2').update(byShop()));
+    await assertFails(staff().doc('orders/o2').update(byShop({ cancelReason: 'changed_mind' })));
+    await assertFails(staff().doc('orders/o2').update(byShop({ cancelReason: 'other' })));
+    await assertSucceeds(staff().doc('orders/o2').update(byShop({ cancelReason: 'no_contact', cancelNote: 'Gọi 3 lần không bắt máy' })));
+  });
+  it('không ai sửa được lý do sau khi đã huỷ / ghi lý do khi không huỷ', async () => {
+    await assertFails(staff().doc('orders/o2').update({ status: 'preparing', cancelReason: 'sold_out', updatedAt: serverTimestamp() }));
+    await assertSucceeds(anon('cust1').doc('orders/o1').update(byCustomer({ cancelReason: 'too_slow' })));
+    await assertFails(staff().doc('orders/o1').update({ cancelReason: 'sold_out', updatedAt: serverTimestamp() }));
+    await assertFails(anon('cust1').doc('orders/o1').update({ cancelNote: 'sửa lại', updatedAt: serverTimestamp() }));
+  });
+  it('đơn đã huỷ từ trước (chưa có lý do) nhân viên vẫn ghi chú được', async () => {
+    await seed((db) => db.doc('orders/old').set({ ...order('cust1', { status: 'cancelled', cancelledBy: 'customer' }), createdAt: Timestamp.now(), updatedAt: Timestamp.now() }));
+    await assertSucceeds(staff().doc('orders/old').update({ staffNote: 'Khách báo đặt lại', updatedAt: serverTimestamp() }));
   });
 });

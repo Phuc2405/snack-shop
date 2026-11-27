@@ -26,4 +26,6 @@ export const DEMO_SETTINGS: ShopSettings = {
   bankBin: '970436',
   bankAccount: '0000000000',
   bankAccountName: 'BAN DEMO',
+  shipFeeMode: 'flat',
+  shipPrepaid: false,
 };

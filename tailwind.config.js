@@ -48,7 +48,17 @@ export default {
         'slide-up': { '0%': { transform: 'translateY(100%)' }, '100%': { transform: 'none' } },
         'slide-left': { '0%': { transform: 'translateX(100%)' }, '100%': { transform: 'none' } },
         fade: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+        // Hiệu ứng ĐÓNG (Dialog giữ lại ~180ms để chạy xong rồi mới close())
+        'pop-out': { '0%': { opacity: '1', transform: 'none' }, '100%': { opacity: '0', transform: 'scale(.96) translateY(6px)' } },
+        'slide-down': { '0%': { transform: 'none' }, '100%': { transform: 'translateY(100%)' } },
+        'slide-right': { '0%': { transform: 'none' }, '100%': { transform: 'translateX(100%)' } },
+        'fade-up': { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'none' } },
         wiggle: { '0%,100%': { transform: 'rotate(-4deg)' }, '50%': { transform: 'rotate(4deg)' } },
+        // Nghiêng trái ↔ phải (hình đồ ăn ở trạng thái trống / chờ)
+        tilt: {
+          '0%,100%': { transform: 'rotate(-10deg)' },
+          '50%': { transform: 'rotate(10deg) translateY(-4px)' },
+        },
         bump: { '0%,100%': { transform: 'scale(1)' }, '40%': { transform: 'scale(1.25)' } },
       },
       animation: {
@@ -56,6 +66,11 @@ export default {
         'slide-up': 'slide-up .25s cubic-bezier(.2,.8,.3,1) both',
         'slide-left': 'slide-left .25s cubic-bezier(.2,.8,.3,1) both',
         fade: 'fade .2s ease-out both',
+        'pop-out': 'pop-out .18s ease-in both',
+        'slide-down': 'slide-down .2s ease-in both',
+        'slide-right': 'slide-right .2s ease-in both',
+        'fade-up': 'fade-up .28s cubic-bezier(.2,.8,.3,1) both',
+        tilt: 'tilt 1.8s ease-in-out infinite',
         wiggle: 'wiggle 2.4s ease-in-out infinite',
         bump: 'bump .35s ease-out',
       },

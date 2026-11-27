@@ -15,6 +15,7 @@ service cloud.firestore {
     function signedIn() { return request.auth != null; }
 
     // Nhân viên = có tài khoản email/mật khẩu (không phải ẩn danh) VÀ có doc staff/{uid}.
+    // Khách cũng có tài khoản email/mật khẩu nhưng KHÔNG có doc staff → không có quyền quản lý.
     // Doc staff chỉ tạo được trong Firebase Console → không ai tự nâng quyền được.
     function isStaff() {
       return signedIn()
@@ -28,19 +29,22 @@ service cloud.firestore {
     function isInt(v, min, max) { return v is int && v >= min && v <= max; }
     function optStr(d, key, max) { return !(key in d) || isStr(d[key], 0, max); }
 
-    // ---------- Sản phẩm: ai cũng xem, chỉ nhân viên sửa ----------
+    // ---------- Sản phẩm: khách xem món đang hiện, chỉ nhân viên sửa ----------
+    // Món ẩn (hidden == true): khách không đọc được (kể cả gọi thẳng API), nhân viên vẫn thấy.
+    // Doc vẫn còn nên đơn cũ / báo cáo không mất gì.
     match /products/{productId} {
-      allow get: if true;
-      // Bắt buộc có limit để một truy vấn không đọc vô hạn (chống "denial of wallet")
-      allow list: if request.query.limit <= 200;
+      allow get: if isStaff() || resource.data.get('hidden', false) == false;
+      // Bắt buộc có limit để một truy vấn không đọc vô hạn (chống "denial of wallet");
+      // khách phải lọc where('hidden', '==', false), không thì bị từ chối cả truy vấn.
+      allow list: if request.query.limit <= 200 && (isStaff() || resource.data.hidden == false);
       allow create, update: if isStaff() && validProduct(request.resource.data);
       allow delete: if isStaff();
     }
 
     function validProduct(d) {
       return d.keys().hasOnly(['name', 'description', 'price', 'category', 'imageUrl',
-                               'available', 'featured', 'sortOrder', 'options', 'createdAt', 'updatedAt'])
-        && d.keys().hasAll(['name', 'price', 'category', 'available', 'featured', 'sortOrder', 'updatedAt'])
+                               'available', 'featured', 'sortOrder', 'hidden', 'options', 'createdAt', 'updatedAt'])
+        && d.keys().hasAll(['name', 'price', 'category', 'available', 'featured', 'sortOrder', 'hidden', 'updatedAt'])
         && isStr(d.name, 1, 80)
         && optStr(d, 'description', 500)
         && isInt(d.price, 0, 10000000)
@@ -48,6 +52,7 @@ service cloud.firestore {
         && (!('imageUrl' in d) || d.imageUrl == '' || (isStr(d.imageUrl, 9, 500) && d.imageUrl.matches('^https://[^\\s"<>]+$')))
         && d.available is bool
         && d.featured is bool
+        && d.hidden is bool
         && isInt(d.sortOrder, 0, 9999)
         // Tuỳ chọn (size/đường/đá/topping): rules không lặp được vào từng nhóm → giới hạn số nhóm;
         // giá tuỳ chọn trong đơn được dashboard đối chiếu với menu (auditOrder)
@@ -65,7 +70,7 @@ service cloud.firestore {
     function validSettings(d) {
       return d.keys().hasOnly(['name', 'tagline', 'hotline', 'address', 'openHours', 'isOpen',
                                'deliveryFee', 'freeShipFrom', 'minOrder', 'announcement',
-                               'bankBin', 'bankAccount', 'bankAccountName', 'updatedAt'])
+                               'bankBin', 'bankAccount', 'bankAccountName', 'shipFeeMode', 'shipPrepaid', 'updatedAt'])
         && d.keys().hasAll(['name', 'hotline', 'isOpen', 'deliveryFee', 'minOrder', 'updatedAt'])
         && isStr(d.name, 1, 60)
         && optStr(d, 'tagline', 120)
@@ -80,6 +85,10 @@ service cloud.firestore {
         && (!('bankBin' in d) || d.bankBin == '' || d.bankBin.matches('^[0-9]{6}$'))
         && (!('bankAccount' in d) || d.bankAccount == '' || d.bankAccount.matches('^[0-9]{4,19}$'))
         && optStr(d, 'bankAccountName', 60)
+        && (!('shipFeeMode' in d) || d.shipFeeMode in ['flat', 'driver'])
+        && (!('shipPrepaid' in d) || d.shipPrepaid is bool)
+        // Bắt chuyển khoản trước mà chưa có tài khoản → khách không đặt ship được → chặn cấu hình này
+        && (d.get('shipPrepaid', false) == false || (d.get('bankAccount', '') != '' && d.get('bankBin', '') != ''))
         && d.updatedAt == request.time;
     }
 
@@ -104,15 +113,19 @@ service cloud.firestore {
       let s = shop();
       return d.keys().hasOnly(['code', 'customerUid', 'customer', 'fulfillment', 'items', 'itemCount',
                                'subtotal', 'deliveryFee', 'total', 'status', 'paymentMethod', 'paid',
-                               'createdAt', 'updatedAt'])
+                               'shipToDriver', 'createdAt', 'updatedAt'])
         && d.keys().hasAll(['code', 'customerUid', 'customer', 'fulfillment', 'items', 'itemCount',
                             'subtotal', 'deliveryFee', 'total', 'status', 'paymentMethod', 'paid',
-                            'createdAt', 'updatedAt'])
+                            'shipToDriver', 'createdAt', 'updatedAt'])
         && d.customerUid == request.auth.uid
         && d.status == 'new'
         // Khách không tự đánh dấu "đã trả tiền"; chuyển khoản chỉ khi tiệm đã khai báo tài khoản
         && d.paid == false
         && (d.paymentMethod == 'cod' || (d.paymentMethod == 'transfer' && s.get('bankAccount', '') != ''))
+        // Tiệm bật "đơn ship phải chuyển khoản trước" → đơn ship không được chọn tiền mặt
+        // (PHẢI giống allowedPayments() trong src/domain/pricing.ts)
+        && !(d.fulfillment == 'delivery' && s.get('shipPrepaid', false) == true && d.paymentMethod != 'transfer')
+        && d.shipToDriver == (d.fulfillment == 'delivery' && s.get('shipFeeMode', 'flat') == 'driver')
         && d.createdAt == request.time
         && d.updatedAt == request.time
         && isStr(d.code, 4, 16)
@@ -129,6 +142,7 @@ service cloud.firestore {
     // Phí ship — PHẢI giống deliveryFeeFor() trong src/domain/pricing.ts (có test so khớp)
     function expectedDeliveryFee(d, s) {
       return d.fulfillment == 'pickup' ? 0
+        : s.get('shipFeeMode', 'flat') == 'driver' ? 0
         : (s.get('freeShipFrom', 0) > 0 && d.subtotal >= s.get('freeShipFrom', 0)) ? 0
         : s.deliveryFee;
     }
@@ -154,7 +168,16 @@ service cloud.firestore {
         && after.status == 'cancelled'
         && after.cancelledBy == 'customer'
         && after.updatedAt == request.time
-        && after.diff(before).affectedKeys().hasOnly(['status', 'updatedAt', 'cancelledBy']);
+        && after.diff(before).affectedKeys().hasOnly(['status', 'updatedAt', 'cancelledBy', 'cancelReason', 'cancelNote'])
+        // BẮT BUỘC lý do (PHẢI khớp CUSTOMER_CANCEL_REASONS trong src/domain/cancelReasons.ts)
+        && after.get('cancelReason', '') in ['changed_mind', 'wrong_items', 'wrong_info', 'too_slow', 'other']
+        && validCancelNote(after);
+    }
+
+    // Ghi chú huỷ: không bắt buộc (≤ 200 ký tự), riêng lý do "other" phải ghi ít nhất 3 ký tự
+    function validCancelNote(a) {
+      return (!('cancelNote' in a) || isStr(a.cancelNote, 0, 200))
+        && (a.get('cancelReason', '') != 'other' || isStr(a.get('cancelNote', ''), 3, 200));
     }
 
     // Nhân viên chuyển trạng thái theo đúng máy trạng thái (giống src/domain/orderStatus.ts).
@@ -162,12 +185,19 @@ service cloud.firestore {
       let before = resource.data;
       let after = request.resource.data;
       return isStaff()
-        && after.diff(before).affectedKeys().hasOnly(['status', 'updatedAt', 'cancelledBy', 'staffNote', 'paid'])
+        && after.diff(before).affectedKeys().hasOnly(['status', 'updatedAt', 'cancelledBy', 'staffNote', 'paid', 'cancelReason', 'cancelNote'])
         && after.updatedAt == request.time
         && after.get('paid', false) is bool // đơn cũ (trước khi có thanh toán) chưa có field paid
         && (after.status == before.status || after.status in nextStatuses()[before.status])
         && (!('staffNote' in after) || isStr(after.staffNote, 0, 300))
-        && (!('cancelledBy' in after) || after.cancelledBy == 'shop' || after.cancelledBy == before.get('cancelledBy', null));
+        && (!('cancelledBy' in after) || after.cancelledBy == 'shop' || after.cancelledBy == before.get('cancelledBy', null))
+        // Tiệm huỷ: BẮT BUỘC lý do (PHẢI khớp SHOP_CANCEL_REASONS trong src/domain/cancelReasons.ts)
+        && (after.status != 'cancelled' || before.status == 'cancelled'
+            || (after.get('cancelReason', '') in ['sold_out', 'shop_busy', 'no_contact', 'out_of_area', 'customer_request', 'other']
+                && validCancelNote(after)))
+        // Lý do / ghi chú huỷ chỉ được ghi đúng lúc huỷ (không sửa lý do của khách / đơn cũ về sau)
+        && (!after.diff(before).affectedKeys().hasAny(['cancelReason', 'cancelNote'])
+            || (after.status == 'cancelled' && before.status != 'cancelled'));
     }
 
     function nextStatuses() {
@@ -193,6 +223,48 @@ service cloud.firestore {
     function validThrottle() {
       return request.resource.data.keys().hasOnly(['lastOrderAt'])
         && request.resource.data.lastOrderAt == request.time;
+    }
+
+    // ---------- Tài khoản khách: sổ địa chỉ, chỉ chính chủ đọc/ghi ----------
+    // Phải là tài khoản email/mật khẩu (token có email) — phiên ẩn danh không có sổ địa chỉ.
+    // Nhân viên cũng KHÔNG đọc được: thông tin giao hàng cần thiết đã nằm trong từng đơn.
+    match /users/{uid} {
+      allow get, delete: if isAccountOwner(uid);
+      allow list: if false;
+      allow create, update: if isAccountOwner(uid) && validUserDoc(request.resource.data);
+    }
+
+    function isAccountOwner(uid) {
+      return signedIn()
+        && request.auth.uid == uid
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && request.auth.token.get('email', '') != '';
+    }
+
+    function validUserDoc(d) {
+      let a = d.addresses;
+      return d.keys().hasOnly(['addresses', 'defaultAddressId', 'updatedAt'])
+        && d.keys().hasAll(['addresses', 'defaultAddressId', 'updatedAt'])
+        && a is list && a.size() <= 5
+        && isStr(d.defaultAddressId, 0, 20)
+        // Rules không có vòng lặp → kiểm từng phần tử theo chỉ số (tối đa 5)
+        && (a.size() < 1 || validAddress(a[0]))
+        && (a.size() < 2 || validAddress(a[1]))
+        && (a.size() < 3 || validAddress(a[2]))
+        && (a.size() < 4 || validAddress(a[3]))
+        && (a.size() < 5 || validAddress(a[4]))
+        && d.updatedAt == request.time;
+    }
+
+    // PHẢI khớp addressSchema trong src/schemas/checkout.schema.ts
+    function validAddress(x) {
+      return x is map
+        && x.keys().hasOnly(['id', 'name', 'phone', 'address'])
+        && x.keys().hasAll(['id', 'name', 'phone', 'address'])
+        && isStr(x.id, 1, 20)
+        && isStr(x.name, 2, 60)
+        && x.phone is string && x.phone.matches('^(0|\\+84)[0-9]{9,10}$')
+        && isStr(x.address, 0, 200);
     }
 
     // ---------- Danh sách nhân viên: chỉ sửa trong Firebase Console ----------

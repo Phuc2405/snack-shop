@@ -10,6 +10,8 @@ import {
   type AddResult,
   type CartChange,
   type CartLine,
+  type UpdateResult,
+  updateLine,
 } from '@/domain/cart';
 import { autoId } from '@/lib/id';
 
@@ -23,6 +25,8 @@ interface CartState {
    */
   pendingOrderId: string;
   add: (p: Product, qty?: number, options?: SelectedOption[], note?: string) => AddResult;
+  /** Sửa 1 dòng đã có (đổi tuỳ chọn / ghi chú / số lượng), giữ vị trí; trùng dòng khác thì gộp */
+  update: (key: string, p: Product, qty: number, options: SelectedOption[], note: string) => UpdateResult;
   /** Thay toàn bộ giỏ (đăng nhập: giỏ đã gộp; đăng xuất: giỏ trống) */
   replace: (lines: CartLine[]) => void;
   /** key = CartLine.key (món + tuỳ chọn) */
@@ -40,6 +44,11 @@ export const useCartStore = create<CartState>()(
       add: (p, qty = 1, options = [], note = '') => {
         const { lines, result } = addLine(get().lines, p, qty, options, note);
         if (result === 'added' || result === 'capped') set({ lines, pendingOrderId: autoId() });
+        return result;
+      },
+      update: (key, p, qty, options, note) => {
+        const { lines, result } = updateLine(get().lines, key, p, qty, options, note);
+        if (result === 'updated' || result === 'merged') set({ lines, pendingOrderId: autoId() });
         return result;
       },
       setQty: (key, qty) => set({ lines: setLineQty(get().lines, key, qty), pendingOrderId: autoId() }),

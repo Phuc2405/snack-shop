@@ -3,11 +3,13 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   limit,
   query,
   serverTimestamp,
   updateDoc,
+  where,
   writeBatch,
 } from 'firebase/firestore/lite';
 import { db, ready } from '@/lib/firebase';
@@ -22,11 +24,39 @@ import { DEMO } from '@/lib/demo';
 const MENU_LIMIT = 200; // khớp `request.query.limit <= 200` trong firestore.rules
 
 export const productRepo = {
+  /** Menu cho khách: chỉ món đang hiện (rules từ chối truy vấn thiếu where hidden == false). */
   async list(): Promise<Product[]> {
-    if (DEMO) return sortProducts(SAMPLE_MENU.map((p, i) => ({ ...p, id: `demo-${i}`, updatedAt: null })));
+    if (DEMO) return sortProducts(SAMPLE_MENU.filter((p) => !p.hidden).map((p, i) => ({ ...p, id: `demo-${i}`, updatedAt: null })));
     try {
       await ready();
-      const snap = await getDocs(query(collection(db(), 'products'), limit(MENU_LIMIT)));
+      const snap = await getDocs(query(collection(db(), 'products'), where('hidden', '==', false), limit(MENU_LIMIT)));
+      return sortProducts(snap.docs.map((d) => toProduct(d.id, d.data())));
+    } catch (e) {
+      throw toAppError(e);
+    }
+  },
+
+  /**
+   * Đọc lại 1 món ngay trên server (khách vừa bấm thêm). null = món bị ẩn (rules từ chối) hoặc đã xoá.
+   * Chỉ 1 lượt đọc, rẻ hơn tải lại cả menu.
+   */
+  async get(id: string): Promise<Product | null> {
+    try {
+      await ready();
+      const snap = await getDoc(doc(db(), 'products', id));
+      return snap.exists() ? toProduct(snap.id, snap.data()) : null;
+    } catch (e) {
+      const err = toAppError(e);
+      if (err.code === 'permission-denied') return null; // món ẩn: rules không cho khách đọc
+      throw err;
+    }
+  },
+
+  /** Trang quản lý: mọi món kể cả món ẩn (phiên nhân viên). */
+  async listAll(): Promise<Product[]> {
+    try {
+      await ready();
+      const snap = await getDocs(query(collection(db('staff'), 'products'), limit(MENU_LIMIT)));
       return sortProducts(snap.docs.map((d) => toProduct(d.id, d.data())));
     } catch (e) {
       throw toAppError(e);

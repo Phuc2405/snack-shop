@@ -22,16 +22,18 @@ import { AppError } from './errors';
 
 export type Scope = 'guest' | 'staff';
 
-const env = import.meta.env;
-export const usingEmulators = env.VITE_USE_EMULATORS === 'true';
-export const isFirebaseConfigured = Boolean(env.VITE_FIREBASE_PROJECT_ID && env.VITE_FIREBASE_API_KEY);
+// Đọc thẳng import.meta.env.VITE_* (KHÔNG gán `const env = import.meta.env`): Vite thay từng biến bằng hằng số
+// lúc build → nhánh emulator (127.0.0.1, cổng 9099…) bị xoá khỏi bản production (scripts/check-security.mjs kiểm).
+export const usingEmulators = import.meta.env.VITE_USE_EMULATORS === 'true';
+export const isFirebaseConfigured = Boolean(import.meta.env.VITE_FIREBASE_PROJECT_ID && import.meta.env.VITE_FIREBASE_API_KEY);
+const APPCHECK_KEY: string | undefined = import.meta.env.VITE_APPCHECK_SITE_KEY;
 
 const EMU_HOST = '127.0.0.1';
 const CONFIG = {
-  apiKey: env.VITE_FIREBASE_API_KEY,
-  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: env.VITE_FIREBASE_PROJECT_ID,
-  appId: env.VITE_FIREBASE_APP_ID,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
 const apps: Record<Scope, FirebaseApp | null> = isFirebaseConfigured
@@ -50,11 +52,11 @@ function requireApp(scope: Scope): FirebaseApp {
 
 /** App Check phải sẵn sàng TRƯỚC request đầu tiên, nên mọi repository `await ready()`. */
 const appCheckReady: Promise<void> =
-  isFirebaseConfigured && env.VITE_APPCHECK_SITE_KEY && !usingEmulators
+  isFirebaseConfigured && APPCHECK_KEY && !usingEmulators
     ? import('firebase/app-check').then(({ initializeAppCheck, ReCaptchaV3Provider }) => {
         for (const app of Object.values(apps)) {
           if (app) {
-            initializeAppCheck(app, { provider: new ReCaptchaV3Provider(env.VITE_APPCHECK_SITE_KEY!), isTokenAutoRefreshEnabled: true });
+            initializeAppCheck(app, { provider: new ReCaptchaV3Provider(APPCHECK_KEY!), isTokenAutoRefreshEnabled: true });
           }
         }
       })

@@ -4,7 +4,7 @@ import { profileSchema, type ProfileInput, type ProfileValues } from '@/schemas/
 import { TextField } from '@/components/ui/FormField';
 import { Button } from '@/components/ui/Button';
 
-/** Form tên – SĐT – địa chỉ: dùng cho đăng nhập và cho sổ thông tin người đặt. */
+/** Form người nhận: tên – SĐT – địa chỉ (sổ địa chỉ của tài khoản). */
 export function ProfileForm({
   initial,
   submitLabel,
@@ -13,13 +13,13 @@ export function ProfileForm({
 }: {
   initial?: Partial<ProfileInput>;
   submitLabel: string;
-  onSubmit: (v: ProfileValues) => void;
+  onSubmit: (v: ProfileValues) => void | Promise<void>;
   onCancel?: () => void;
 }) {
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<ProfileInput, unknown, ProfileValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: { name: initial?.name ?? '', phone: initial?.phone ?? '', address: initial?.address ?? '' },
@@ -27,7 +27,7 @@ export function ProfileForm({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
-      <TextField label="Tên của bạn" autoComplete="name" maxLength={60} placeholder="VD: Nguyễn Văn A" error={errors.name?.message} {...register('name')} />
+      <TextField label="Tên người nhận" autoComplete="name" maxLength={60} placeholder="VD: Nguyễn Văn A" error={errors.name?.message} {...register('name')} />
       <TextField
         label="Số điện thoại"
         type="tel"
@@ -36,7 +36,7 @@ export function ProfileForm({
         maxLength={16}
         placeholder="VD: 0901234567"
         error={errors.phone?.message}
-        hint="Tiệm gọi xác nhận đơn qua số này"
+        hint="Tiệm / tài xế gọi số này khi giao"
         {...register('phone')}
       />
       <TextField
@@ -48,7 +48,7 @@ export function ProfileForm({
         {...register('address')}
       />
       <div className="flex flex-wrap gap-3 pt-1">
-        <Button type="submit" size="lg" className="flex-1">
+        <Button type="submit" size="lg" className="flex-1" loading={isSubmitting}>
           {submitLabel}
         </Button>
         {onCancel && (

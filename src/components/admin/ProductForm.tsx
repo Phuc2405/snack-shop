@@ -19,6 +19,7 @@ const EMPTY: ProductFormInput = {
   available: true,
   featured: false,
   sortOrder: 100,
+  hidden: false,
   options: [],
 };
 
@@ -56,6 +57,7 @@ export function ProductForm({
             available: product.available,
             featured: product.featured,
             sortOrder: product.sortOrder,
+            hidden: product.hidden,
             options: structuredClone(product.options),
           }
         : EMPTY,
@@ -131,6 +133,11 @@ export function ProductForm({
           <div className="divide-y divide-edge rounded-2xl border border-edge px-4">
             <Toggle label="Còn bán" description="Tắt khi món tạm hết" {...register('available')} />
             <Toggle label="Món nổi bật" description="Gắn nhãn Hot" {...register('featured')} />
+            <Toggle
+              label="Ẩn khỏi menu"
+              description="Khách không thấy món này nữa; đơn cũ và báo cáo vẫn giữ nguyên"
+              {...register('hidden')}
+            />
           </div>
         </div>
         <div className="order-first sm:order-none">

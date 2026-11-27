@@ -7,4 +7,4 @@
 - Trước khi báo xong: `npm run check` (+ `npm run test:rules` nếu đụng rules/dữ liệu).
 - Giao diện: token màu ở `tailwind.config.js`; vùng bấm ≥ 44px; chữ trên nền màu dùng `text-ink`.
 - Skill trong `.claude/skills/`: `ui-ux-latency-check`, `responsive-layout-check`, `security-hardening`.
-- Chạy local không cần Firebase thật: `npm run dev:emu` → `npm run seed:emu` → `npm run dev -- --mode emulator`.
+- Chạy local không cần Firebase thật: `npm run dev:local` (emulator + dữ liệu mẫu + web, một lệnh).

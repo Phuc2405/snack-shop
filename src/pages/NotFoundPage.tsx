@@ -9,7 +9,7 @@ export function NotFoundPage() {
       </div>
       <h1 className="mt-4 text-4xl">Ơ, lạc đường rồi!</h1>
       <p className="mt-2 text-lg text-ink-soft">Trang này không có trong menu.</p>
-      <Link to="/" className="mt-6 inline-flex min-h-[3rem] items-center rounded-xl border border-edge bg-tangerine px-6 font-bold shadow-sticker">
+      <Link viewTransition to="/" className="mt-6 inline-flex min-h-[3rem] items-center rounded-xl border border-edge bg-tangerine px-6 font-bold shadow-sticker">
         Về trang chủ
       </Link>
     </div>

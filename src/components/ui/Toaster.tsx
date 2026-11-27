@@ -46,6 +46,18 @@ export function Toaster() {
           >
             <Icon className="mt-0.5 h-5 w-5 shrink-0" strokeWidth={2.5} aria-hidden />
             <p className="flex-1 text-[0.95rem] font-bold leading-snug">{t.message}</p>
+            {t.action && (
+              <button
+                type="button"
+                onClick={() => {
+                  t.action!.onClick();
+                  dismiss(t.id);
+                }}
+                className="-my-1.5 min-h-[2.75rem] shrink-0 rounded-full border border-edge bg-white px-3 text-[0.95rem] font-bold underline-offset-2 hover:underline"
+              >
+                {t.action.label}
+              </button>
+            )}
             <button onClick={() => dismiss(t.id)} className="-m-2 grid h-10 w-10 shrink-0 place-items-center" aria-label="Đóng thông báo">
               <X className="h-4 w-4" strokeWidth={2.5} />
             </button>

@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import type { Product } from '@/types/domain';
 
+export type LoginMode = 'signin' | 'signup' | 'reset';
+
 interface UiState {
   cartOpen: boolean;
   openCart: () => void;
@@ -11,13 +13,14 @@ interface UiState {
   /** Tăng mỗi lần thêm món → icon giỏ "nảy" lên */
   bump: number;
   bumpCart: () => void;
-  /** Hộp đăng nhập; `afterLogin` chạy sau khi đăng nhập xong */
+  /** Hộp đăng nhập / tạo tài khoản / quên mật khẩu; `afterLogin` chạy sau khi đăng nhập xong */
   loginOpen: boolean;
+  loginMode: LoginMode;
   loginReason: string;
   afterLogin: (() => void) | null;
-  openLogin: (opts?: { reason?: string; then?: () => void }) => void;
+  openLogin: (opts?: { reason?: string; then?: () => void; mode?: LoginMode }) => void;
   closeLogin: () => void;
-  /** Hộp chọn / sửa / tạo mới thông tin người đặt */
+  /** Sổ địa chỉ nhận hàng của tài khoản */
   profilesOpen: boolean;
   openProfiles: () => void;
   closeProfiles: () => void;
@@ -32,10 +35,18 @@ export const useUiStore = create<UiState>()((set) => ({
   bump: 0,
   bumpCart: () => set((s) => ({ bump: s.bump + 1 })),
   loginOpen: false,
+  loginMode: 'signin',
   loginReason: '',
   afterLogin: null,
   openLogin: (opts) =>
-    set({ loginOpen: true, cartOpen: false, viewing: null, loginReason: opts?.reason ?? '', afterLogin: opts?.then ?? null }),
+    set({
+      loginOpen: true,
+      cartOpen: false,
+      viewing: null,
+      loginMode: opts?.mode ?? 'signin',
+      loginReason: opts?.reason ?? '',
+      afterLogin: opts?.then ?? null,
+    }),
   closeLogin: () => set({ loginOpen: false, afterLogin: null }),
   profilesOpen: false,
   openProfiles: () => set({ profilesOpen: true }),

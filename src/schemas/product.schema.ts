@@ -30,6 +30,7 @@ export const productSchema = z.object({
   available: z.boolean(),
   featured: z.boolean(),
   sortOrder: z.coerce.number<string | number>().int().min(0).max(9999),
+  hidden: z.boolean(),
   options: z.array(groupSchema).max(8, 'Tối đa 8 nhóm tuỳ chọn'),
 });
 
@@ -52,14 +53,20 @@ export const settingsSchema = z.object({
   deliveryFee: z.coerce.number<string | number>().int().min(0).max(500_000),
   freeShipFrom: z.coerce.number<string | number>().int('Nhập số nguyên').min(0).max(50_000_000),
   minOrder: z.coerce.number<string | number>().int().min(0).max(5_000_000),
-  bankBin: z.string().regex(/^(d{6})?$/, 'Chọn ngân hàng'),
+  bankBin: z.string().regex(/^(\d{6})?$/, 'Chọn ngân hàng'),
   bankAccount: z
     .string()
-    .transform((v) => v.replace(/[s.-]/g, ''))
-    .pipe(z.string().regex(/^(d{4,19})?$/, 'Số tài khoản chỉ gồm 4–19 chữ số')),
+    .transform((v) => v.replace(/[\s.-]/g, ''))
+    .pipe(z.string().regex(/^(\d{4,19})?$/, 'Số tài khoản chỉ gồm 4–19 chữ số')),
   bankAccountName: z.string().transform(clean).pipe(z.string().max(60)),
+  shipFeeMode: z.enum(['flat', 'driver']),
+  shipPrepaid: z.boolean(),
 }).superRefine((v, ctx) => {
   if (v.bankAccount && !v.bankBin) ctx.addIssue({ code: 'custom', path: ['bankBin'], message: 'Chọn ngân hàng cho số tài khoản này' });
+  // Khớp rules: bắt chuyển khoản trước thì phải có tài khoản, không thì khách không đặt ship được
+  if (v.shipPrepaid && !(v.bankAccount && v.bankBin)) {
+    ctx.addIssue({ code: 'custom', path: ['shipPrepaid'], message: 'Cần điền tài khoản VietQR bên dưới trước khi bật' });
+  }
 });
 
 export type SettingsFormInput = z.input<typeof settingsSchema>;

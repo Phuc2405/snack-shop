@@ -28,6 +28,20 @@ export function toggleChoice(sel: Selection, g: OptionGroup, choiceId: string): 
   return { ...sel, [g.id]: [choiceId] };
 }
 
+/**
+ * Ngược của toSelectedOptions: tuỳ chọn đã lưu trong giỏ → Selection để mở lại form sửa.
+ * Lựa chọn không còn trong menu bị bỏ qua (khách chọn lại).
+ */
+export function selectionFromOptions(p: Pick<Product, 'options'>, opts: Pick<SelectedOption, 'group' | 'choice'>[]): Selection {
+  const sel: Selection = {};
+  for (const g of p.options) {
+    const ids = new Set(g.choices.map((c) => c.id));
+    sel[g.id] = opts.filter((o) => o.group === g.id && ids.has(o.choice)).map((o) => o.choice);
+    if (!g.multi) sel[g.id] = sel[g.id]!.slice(0, 1);
+  }
+  return sel;
+}
+
 /** Tên các nhóm bắt buộc chưa chọn. */
 export function missingRequired(p: Pick<Product, 'options'>, sel: Selection): string[] {
   return p.options.filter((g) => g.required && !(sel[g.id]?.length)).map((g) => g.name);

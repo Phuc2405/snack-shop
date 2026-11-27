@@ -11,7 +11,7 @@ import { toAppError } from '@/lib/errors';
 
 const schema = z.object({
   email: z.string().trim().email('Email không hợp lệ').max(120),
-  password: z.string().min(6, 'Mật khẩu ít nhất 6 ký tự').max(128),
+  password: z.string().min(1, 'Nhập mật khẩu').max(128),
 });
 type Values = z.infer<typeof schema>;
 
@@ -23,11 +23,30 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const from = (useLocation().state as { from?: string } | null)?.from ?? '/admin';
   const [formError, setFormError] = useState<string | null>(null);
+  const [resetMsg, setResetMsg] = useState<{ text: string; devLink: string | null } | null>(null);
   const {
     register,
     handleSubmit,
+    getValues,
+    trigger,
     formState: { errors, isSubmitting },
   } = useForm<Values>({ resolver: zodResolver(schema) });
+
+  const forgot = async () => {
+    setFormError(null);
+    if (!(await trigger('email'))) return;
+    const email = getValues('email');
+    try {
+      const { customerService } = await import('@/services/customer.service');
+      await customerService.sendPasswordReset(email);
+      setResetMsg({
+        text: `Nếu ${email} có tài khoản, email đặt lại mật khẩu sẽ tới trong vài phút (xem cả mục Spam).`,
+        devLink: await customerService.devResetLink(email),
+      });
+    } catch (e) {
+      setFormError(toAppError(e).message);
+    }
+  };
 
   useEffect(() => init(), [init]);
 
@@ -39,7 +58,7 @@ export default function LoginPage() {
     setFormError(null);
     try {
       await signIn(v.email, v.password);
-      navigate(safeFrom, { replace: true });
+      navigate(safeFrom, { replace: true, viewTransition: true });
     } catch (e) {
       setFormError(toAppError(e).message);
     }
@@ -70,12 +89,25 @@ export default function LoginPage() {
           <Button type="submit" size="lg" className="w-full" loading={isSubmitting}>
             Đăng nhập
           </Button>
+          <button type="button" onClick={() => void forgot()} className="inline-flex min-h-[2.75rem] items-center font-bold text-tangerine-deep underline-offset-4 hover:underline">
+            Quên mật khẩu? (nhập email ở trên rồi bấm)
+          </button>
+          {resetMsg && (
+            <div className="space-y-2 rounded-xl border border-edge bg-mint-soft p-3" role="status">
+              <p>{resetMsg.text}</p>
+              {resetMsg.devLink && (
+                <a href={resetMsg.devLink} target="_blank" rel="noopener noreferrer" className="font-bold underline">
+                  Chế độ test (emulator): mở link đặt lại mật khẩu
+                </a>
+              )}
+            </div>
+          )}
           <p className="text-[0.9rem] text-ink-soft">
-            Tài khoản nhân viên do chủ tiệm tạo trong Firebase Console (xem docs/DATABASE.md).
+            Nhân viên = tài khoản khách bình thường được chủ tiệm cấp quyền (thêm doc staff trong Firebase Console, xem docs/DATABASE.md).
           </p>
         </form>
         <p className="mt-5 text-center">
-          <Link to="/" className="inline-flex min-h-[2.75rem] items-center font-bold underline underline-offset-4">
+          <Link viewTransition to="/" className="inline-flex min-h-[2.75rem] items-center font-bold underline underline-offset-4">
             ← Về trang bán hàng
           </Link>
         </p>

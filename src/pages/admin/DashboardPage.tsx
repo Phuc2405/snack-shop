@@ -2,8 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Bell, BellRing } from 'lucide-react';
 import type { Order, OrderStatus } from '@/types/domain';
 import { useLiveOrders } from '@/hooks/useLiveOrders';
-import { useShopStore } from '@/stores/shop.store';
-import { confirmDialog } from '@/stores/confirm.store';
+import { useAdminMenu } from '@/stores/adminMenu.store';
 import { toast } from '@/stores/toast.store';
 import { setOrderPaid, setOrderStatus } from '@/services/orders.live';
 import { auditOrder, type PriceIssue } from '@/domain/pricing';
@@ -15,6 +14,8 @@ import { EmptyState, Skeleton } from '@/components/ui/Feedback';
 import { OrderCard } from '@/components/admin/OrderCard';
 import { OrderDetail } from '@/components/admin/OrderDetail';
 import { ShopOpenSwitch } from '@/components/admin/ShopOpenSwitch';
+import { CancelOrderDialog } from '@/components/shop/CancelOrderDialog';
+import { SHOP_CANCEL_REASONS } from '@/domain/cancelReasons';
 import { AdminHeader } from './AdminLayout';
 
 type Tab = 'active' | OrderStatus;
@@ -23,15 +24,18 @@ const TAB_LABEL = (t: Tab) => (t === 'active' ? 'Cần xử lý' : t === 'done' 
 
 export default function DashboardPage() {
   const { orders, error, newCount, soundOn, enableSound } = useLiveOrders();
-  const products = useShopStore((s) => s.products);
-  const loadShop = useShopStore((s) => s.load);
+  // Menu đầy đủ (kể cả món ẩn) để đơn có món vừa ẩn không bị báo nhầm "không có trong menu"
+  const products = useAdminMenu((s) => s.products);
+  const loadMenu = useAdminMenu((s) => s.load);
   const [tab, setTab] = useState<Tab>('active');
   const [openId, setOpenId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  /** Đơn đang chờ chọn lý do huỷ */
+  const [cancelTarget, setCancelTarget] = useState<Order | null>(null);
 
   useEffect(() => {
-    void loadShop({ silent: true }); // cần menu mới nhất để kiểm tra giá trong đơn
-  }, [loadShop]);
+    void loadMenu(); // cần menu mới nhất để kiểm tra giá trong đơn
+  }, [loadMenu]);
 
   const issues = useMemo(() => {
     const m = new Map<string, PriceIssue[]>();
@@ -68,19 +72,15 @@ export default function DashboardPage() {
     return c;
   }, [orders]);
 
-  const change = useCallback(async (o: Order, to: OrderStatus, note?: string) => {
-    if (to === 'cancelled') {
-      const ok = await confirmDialog({
-        title: `Huỷ đơn ${o.code}?`,
-        message: 'Khách sẽ thấy đơn bị tiệm huỷ. Nên gọi báo khách trước.',
-        confirmLabel: 'Huỷ đơn',
-        danger: true,
-      });
-      if (!ok) return;
+  const change = useCallback(async (o: Order, to: OrderStatus, note?: string, cancel?: { reason: string; note: string }) => {
+    // Huỷ: bắt buộc chọn lý do trước (hộp CancelOrderDialog) — rules cũng từ chối nếu thiếu
+    if (to === 'cancelled' && !cancel) {
+      setCancelTarget(o);
+      return;
     }
     setBusyId(o.id);
     try {
-      await setOrderStatus(o, to, note);
+      await setOrderStatus(o, to, note, cancel);
       toast.success(`${o.code}: ${statusLabel(to, o.fulfillment)}`);
       if (to === 'done' || to === 'cancelled') setOpenId(null);
     } catch (e) {
@@ -177,6 +177,18 @@ export default function DashboardPage() {
         onClose={() => setOpenId(null)}
         onChange={(o, to, note) => void change(o, to, note)}
         onTogglePaid={(o) => void togglePaid(o)}
+      />
+      <CancelOrderDialog
+        open={!!cancelTarget}
+        title={cancelTarget ? `Huỷ đơn ${cancelTarget.code}?` : ''}
+        description="Khách sẽ thấy đơn bị tiệm huỷ kèm lý do. Nên gọi báo khách trước."
+        reasons={SHOP_CANCEL_REASONS}
+        onClose={() => setCancelTarget(null)}
+        onConfirm={async (reason, note) => {
+          if (!cancelTarget) return;
+          await change(cancelTarget, 'cancelled', undefined, { reason, note });
+          setCancelTarget(null);
+        }}
       />
     </>
   );

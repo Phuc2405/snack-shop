@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
-import { ArrowLeft, Phone, PartyPopper } from 'lucide-react';
+import { ArrowLeft, Phone, PartyPopper, Moon } from 'lucide-react';
 import { orderRepo } from '@/services/order.repo';
 import { useAsync } from '@/hooks/useAsync';
 import { isFinal, statusLabel } from '@/domain/orderStatus';
@@ -9,8 +9,11 @@ import { Button } from '@/components/ui/Button';
 import { EmptyState, PageLoader } from '@/components/ui/Feedback';
 import { formatDateTime, formatPrice } from '@/lib/format';
 import { toAppError } from '@/lib/errors';
-import { confirmDialog } from '@/stores/confirm.store';
 import { toast } from '@/stores/toast.store';
+import { useShopPhase } from '@/hooks/useShopPhase';
+import { CancelOrderDialog } from '@/components/shop/CancelOrderDialog';
+import { CUSTOMER_CANCEL_REASONS, cancelReasonLabel } from '@/domain/cancelReasons';
+import { afterHoursNote } from '@/domain/hours';
 import { useShopStore } from '@/stores/shop.store';
 import { optionsLabel } from '@/domain/options';
 import { PaymentQR } from '@/components/shop/PaymentQR';
@@ -20,10 +23,12 @@ const POLL_MS = 15_000;
 /** Theo dõi đơn: tự cập nhật trạng thái mỗi 15 giây khi tab đang mở (dừng khi đơn đã xong/huỷ). */
 export default function OrderPage() {
   const { id = '' } = useParams();
+  const phase = useShopPhase();
   const justPlaced = Boolean((useLocation().state as { justPlaced?: boolean } | null)?.justPlaced);
   const settings = useShopStore((s) => s.settings);
   const hotline = settings.hotline;
   const [cancelling, setCancelling] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
   const [finished, setFinished] = useState(false);
   const isFinished = (o: { status: Parameters<typeof isFinal>[0]; paymentMethod: string; paid: boolean }) =>
     isFinal(o.status) && (o.paymentMethod !== 'transfer' || o.paid || o.status === 'cancelled');
@@ -47,7 +52,7 @@ export default function OrderPage() {
         title="Không tìm thấy đơn"
         description="Đơn chỉ xem được trên thiết bị đã đặt. Cần hỗ trợ, bạn gọi tiệm nhé."
         action={
-          <Link to="/" className="font-bold underline underline-offset-4">
+          <Link viewTransition to="/" className="font-bold underline underline-offset-4">
             Về trang chủ
           </Link>
         }
@@ -55,17 +60,18 @@ export default function OrderPage() {
     );
   }
 
-  const cancel = async () => {
-    const ok = await confirmDialog({ title: 'Huỷ đơn này?', message: 'Tiệm chưa nhận đơn nên bạn huỷ được ngay.', confirmLabel: 'Huỷ đơn', danger: true });
-    if (!ok) return;
+  /** Khách huỷ: bắt buộc chọn lý do (hộp CancelOrderDialog), ghi chú tuỳ chọn */
+  const cancel = async (reason: string, note: string) => {
     setCancelling(true);
     try {
-      await orderRepo.cancelMine(order.id);
-      setData((o) => (o ? { ...o, status: 'cancelled', cancelledBy: 'customer' } : o));
+      await orderRepo.cancelMine(order.id, reason, note);
+      setData((o) => (o ? { ...o, status: 'cancelled', cancelledBy: 'customer', cancelReason: reason, cancelNote: note || undefined } : o));
       setFinished(true);
+      setCancelOpen(false);
       toast.success('Đã huỷ đơn.');
     } catch (e) {
       toast.error(toAppError(e).message);
+      setCancelOpen(false);
       reload();
     } finally {
       setCancelling(false);
@@ -74,7 +80,7 @@ export default function OrderPage() {
 
   return (
     <div className="shell max-w-2xl py-6 sm:py-10">
-      <Link to="/orders" className="inline-flex min-h-[2.75rem] items-center gap-2 font-bold text-ink-soft hover:text-ink">
+      <Link viewTransition to="/orders" className="inline-flex min-h-[2.75rem] items-center gap-2 font-bold text-ink-soft hover:text-ink">
         <ArrowLeft className="h-5 w-5" aria-hidden /> Đơn của tôi
       </Link>
 
@@ -83,9 +89,20 @@ export default function OrderPage() {
           <PartyPopper className="h-10 w-10 shrink-0" aria-hidden />
           <div>
             <p className="text-xl font-bold">Đặt món thành công!</p>
-            <p className="text-ink-soft">Tiệm sẽ gọi xác nhận trong ít phút. Trang này tự cập nhật trạng thái.</p>
+            <p className="text-ink-soft">
+              {phase.kind === 'after-hours'
+                ? 'Trang này tự cập nhật khi tiệm xác nhận.'
+                : 'Tiệm sẽ gọi xác nhận trong ít phút. Trang này tự cập nhật trạng thái.'}
+            </p>
           </div>
         </div>
+      )}
+      {/* Đặt ngoài giờ: nói rõ khi nào tiệm xử lý để khách không chờ trong vô vọng */}
+      {order.status === 'new' && phase.kind === 'after-hours' && (
+        <p className="mt-3 flex items-start gap-3 rounded-2xl border border-edge bg-lemon-soft p-4 font-bold" role="status">
+          <Moon className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
+          {afterHoursNote(phase)}
+        </p>
       )}
 
       {order.paymentMethod === 'transfer' && !order.paid && order.status !== 'cancelled' && settings.bankAccount && (
@@ -109,6 +126,12 @@ export default function OrderPage() {
           Trạng thái: <strong>{statusLabel(order.status, order.fulfillment)}</strong>
           {order.status === 'cancelled' && order.cancelledBy === 'shop' && ' (tiệm huỷ)'}
         </p>
+        {order.status === 'cancelled' && order.cancelReason && (
+          <p className="mt-2 rounded-xl border border-edge bg-cream px-3 py-2">
+            Lý do: <strong>{cancelReasonLabel(order.cancelReason, order.cancelledBy)}</strong>
+            {order.cancelNote && <span className="block text-ink-soft">“{order.cancelNote}”</span>}
+          </p>
+        )}
         <div className="mt-5">
           <OrderProgress status={order.status} fulfillment={order.fulfillment} />
         </div>
@@ -133,16 +156,21 @@ export default function OrderPage() {
         </ul>
         <dl className="mt-3 space-y-1 border-t border-dashed border-edge-strong pt-3">
           <div className="flex justify-between">
-            <dt>Phí giao hàng</dt>
-            <dd className="tabular">{order.deliveryFee ? formatPrice(order.deliveryFee) : 'Miễn phí'}</dd>
+            <dt>Phí ship</dt>
+            <dd className="tabular">
+              {order.shipToDriver ? 'Trả tài xế khi nhận' : order.deliveryFee ? formatPrice(order.deliveryFee) : 'Miễn phí'}
+            </dd>
           </div>
           <div className="flex justify-between text-xl font-bold">
-            <dt>Tổng cộng</dt>
+            <dt>{order.shipToDriver ? 'Tiền món' : 'Tổng cộng'}</dt>
             <dd className="price">{formatPrice(order.total)}</dd>
           </div>
         </dl>
+        {order.shipToDriver && (
+          <p className="mt-2 text-[0.9rem] text-ink-soft">Phí ship tính theo app giao hàng, bạn trả trực tiếp cho tài xế khi nhận món.</p>
+        )}
 
-        <h2 className="mt-7 text-xl">{order.fulfillment === 'delivery' ? 'Giao tới' : 'Ghé tiệm lấy'}</h2>
+        <h2 className="mt-7 text-xl">{order.fulfillment === 'delivery' ? 'Ship tới' : 'Ghé tiệm lấy'}</h2>
         <p className="mt-1">
           {order.customer.name} · {order.customer.phone}
         </p>
@@ -159,12 +187,20 @@ export default function OrderPage() {
             </a>
           )}
           {order.status === 'new' && (
-            <Button variant="danger" onClick={() => void cancel()} loading={cancelling}>
+            <Button variant="danger" onClick={() => setCancelOpen(true)} loading={cancelling}>
               Huỷ đơn
             </Button>
           )}
         </div>
       </div>
+      <CancelOrderDialog
+        open={cancelOpen}
+        title={`Huỷ đơn ${order.code}?`}
+        description="Tiệm chưa nhận đơn nên bạn huỷ được ngay. Cho tiệm biết lý do để phục vụ tốt hơn nhé."
+        reasons={CUSTOMER_CANCEL_REASONS}
+        onClose={() => setCancelOpen(false)}
+        onConfirm={cancel}
+      />
     </div>
   );
 }

@@ -37,7 +37,7 @@ export function Footer() {
         </ul>
         <div className="space-y-1 text-ink-soft lg:text-right">
           {!DEMO && (
-            <Link to="/admin" className="inline-flex min-h-[2.75rem] items-center underline decoration-dotted underline-offset-4 hover:text-ink">
+            <Link viewTransition to="/admin" className="inline-flex min-h-[2.75rem] items-center underline decoration-dotted underline-offset-4 hover:text-ink">
               Dành cho nhân viên
             </Link>
           )}

@@ -26,12 +26,15 @@ export const DEFAULT_SETTINGS: ShopSettings = {
   bankBin: '',
   bankAccount: '',
   bankAccountName: '',
+  shipFeeMode: 'flat',
+  shipPrepaid: false,
 };
 
-const NO_OPTIONS = { options: [] };
-const DRINK = { options: DRINK_PRESET };
-const JUICE = { options: DRINK_PRESET.filter((g) => g.id !== 'topping') };
-const SNACK_SIZE = { options: SIZE_ONLY_PRESET };
+// hidden: false — món mẫu đều hiện trên menu (rules chỉ cho khách đọc món có hidden == false)
+const NO_OPTIONS = { hidden: false, options: [] };
+const DRINK = { hidden: false, options: DRINK_PRESET };
+const JUICE = { hidden: false, options: DRINK_PRESET.filter((g) => g.id !== 'topping') };
+const SNACK_SIZE = { hidden: false, options: SIZE_ONLY_PRESET };
 
 /**
  * Ảnh chụp thật từ Unsplash (giấy phép Unsplash: dùng miễn phí cho mục đích thương mại, không cần xin phép).

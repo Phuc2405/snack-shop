@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { StaffProfile } from '@/types/domain';
 import { authService } from '@/services/auth.service';
 import { getAuthLazy, isFirebaseConfigured } from '@/lib/firebase';
+import { useAccountStore } from './account.store';
 
 type Status = 'idle' | 'loading' | 'ready';
 
@@ -17,7 +18,7 @@ interface StaffState {
 /** Bộ đếm thế hệ: kết quả cũ về muộn (đổi tài khoản nhanh) bị bỏ qua. */
 let gen = 0;
 
-export const useStaffStore = create<StaffState>()((set) => ({
+export const useStaffStore = create<StaffState>()((set, get) => ({
   status: 'idle',
   staff: null,
 
@@ -54,7 +55,11 @@ export const useStaffStore = create<StaffState>()((set) => ({
   },
 
   signOut: async () => {
-    await authService.staffSignOut();
+    // Cùng một tài khoản đang đăng nhập ở trang khách (đăng nhập 1 lần ở header) → thoát cả hai phiên,
+    // máy dùng chung ở quầy không còn bỏ ngỏ tài khoản quản lý ở trang bán hàng
+    const account = useAccountStore.getState().account;
+    if (account && account.uid === get().staff?.uid) await useAccountStore.getState().signOut();
+    else await authService.staffSignOut();
     set({ staff: null });
   },
 }));

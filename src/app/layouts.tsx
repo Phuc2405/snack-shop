@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useRef } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Toaster } from '@/components/ui/Toaster';
 import { ConfirmHost } from '@/components/ui/ConfirmHost';
@@ -6,7 +6,6 @@ import { PageLoader } from '@/components/ui/Feedback';
 import { Header } from '@/components/shop/Header';
 import { Footer } from '@/components/shop/Footer';
 import { CartDrawer } from '@/components/shop/CartDrawer';
-import { ProductSheet } from '@/components/shop/ProductSheet';
 import { MobileCartBar } from '@/components/shop/MobileCartBar';
 import { useUiStore } from '@/stores/ui.store';
 import { useShopStore } from '@/stores/shop.store';
@@ -20,6 +19,10 @@ export function RootLayout() {
 
   useEffect(() => {
     void load();
+    // Quay lại tab sau một lúc → tải lại menu (món vừa tạm hết / đổi giá hiện đúng trước khi khách bấm thêm)
+    const onVisible = () => document.visibilityState === 'visible' && void useShopStore.getState().refreshIfStale(60_000);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, [load]);
 
   // Đổi trang → lên đầu (trừ khi bấm link có #neo)
@@ -65,7 +68,7 @@ export function ShopLayout() {
       </main>
       <Footer />
       <CartDrawer />
-      <ProductSheet />
+      <LazyProductSheet />
       <MobileCartBar />
       <AccountDialogs />
     </div>
@@ -73,16 +76,44 @@ export function ShopLayout() {
 }
 
 // Hộp đăng nhập / sổ thông tin kéo theo react-hook-form + zod (~45 KB) → chỉ tải khi khách mở, không nằm trong bundle đầu
+// Hộp chi tiết món (chọn size / sửa món đã chọn) kéo theo form, OptionPicker… → tải khi khách bấm món lần đầu
+const loadProductSheet = () => import('@/components/shop/ProductSheet');
+const ProductSheet = lazy(() => loadProductSheet().then((m) => ({ default: m.ProductSheet })));
+
+function LazyProductSheet() {
+  const used = useOnceTrue(useUiStore((s) => s.viewing !== null));
+  // Tải sẵn lúc trình duyệt rảnh → lần đầu bấm món không phải chờ tải code
+  useEffect(() => {
+    const go = () => void loadProductSheet();
+    if ('requestIdleCallback' in window) {
+      const id = requestIdleCallback(go, { timeout: 4000 });
+      return () => cancelIdleCallback(id);
+    }
+    const t = setTimeout(go, 2500);
+    return () => clearTimeout(t);
+  }, []);
+  return <Suspense fallback={null}>{used && <ProductSheet />}</Suspense>;
+}
+
 const LoginDialog = lazy(() => import('@/components/shop/LoginDialog').then((m) => ({ default: m.LoginDialog })));
 const ProfilesDialog = lazy(() => import('@/components/shop/ProfilesDialog').then((m) => ({ default: m.ProfilesDialog })));
 
 function AccountDialogs() {
   const loginOpen = useUiStore((s) => s.loginOpen);
   const profilesOpen = useUiStore((s) => s.profilesOpen);
+  // Chỉ tải code khi mở lần đầu; sau đó giữ gắn để hộp chạy được hiệu ứng đóng (không biến mất cái rụp)
+  const loginUsed = useOnceTrue(loginOpen);
+  const profilesUsed = useOnceTrue(profilesOpen);
   return (
     <Suspense fallback={null}>
-      {loginOpen && <LoginDialog />}
-      {profilesOpen && <ProfilesDialog />}
+      {loginUsed && <LoginDialog />}
+      {profilesUsed && <ProfilesDialog />}
     </Suspense>
   );
+}
+
+function useOnceTrue(v: boolean) {
+  const ref = useRef(false);
+  if (v) ref.current = true;
+  return ref.current;
 }

@@ -129,3 +129,56 @@ export function mergeCarts(account: CartLine[], guest: CartLine[]): { lines: Car
   }
   return { lines, merged, added, dropped };
 }
+
+/** "Đã bỏ khỏi giỏ vì tạm hết: A, B · Giá vừa cập nhật: C" */
+export function describeChanges(changes: CartChange[]): string {
+  const removed = changes.filter((c) => c.kind !== 'price_changed').map((c) => c.name);
+  const repriced = changes.filter((c) => c.kind === 'price_changed').map((c) => c.name);
+  return [
+    removed.length ? `Đã bỏ khỏi giỏ vì vừa tạm hết: ${[...new Set(removed)].join(', ')}` : '',
+    repriced.length ? `Giá vừa cập nhật: ${[...new Set(repriced)].join(', ')}` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+/** Tổng số phần của 1 món trong giỏ (cộng mọi size / tuỳ chọn / ghi chú) — số hiện trên thẻ món */
+export const qtyOfProduct = (lines: CartLine[], productId: string) =>
+  lines.reduce((n, l) => (l.productId === productId ? n + l.qty : n), 0);
+
+export type UpdateResult = 'updated' | 'merged' | 'unavailable' | 'missing';
+
+/**
+ * Sửa 1 dòng đã có trong giỏ (đổi size / đường / ghi chú / số lượng) — giữ nguyên vị trí dòng.
+ * Sửa thành y hệt một dòng khác (cùng món + tuỳ chọn + ghi chú) → GỘP 2 dòng, cộng số lượng (tối đa MAX_QTY_PER_ITEM).
+ */
+export function updateLine(
+  lines: CartLine[],
+  oldKey: string,
+  p: Product,
+  qty: number,
+  options: SelectedOption[],
+  rawNote = '',
+): { lines: CartLine[]; result: UpdateResult } {
+  if (!p.available) return { lines, result: 'unavailable' };
+  const idx = lines.findIndex((l) => l.key === oldKey);
+  if (idx < 0) return { lines, result: 'missing' };
+  const note = normalizeNote(rawNote);
+  const key = cartLineKey(p.id, options, note);
+  const q = Math.min(Math.max(1, Math.floor(qty)), MAX_QTY_PER_ITEM);
+  const updated: CartLine = {
+    ...lines[idx]!,
+    key,
+    name: p.name,
+    price: p.price + optionsTotal(options),
+    imageUrl: p.imageUrl,
+    category: p.category,
+    options,
+    note,
+    qty: q,
+  };
+  const other = lines.findIndex((l, i) => i !== idx && l.key === key);
+  if (other < 0) return { lines: lines.map((l, i) => (i === idx ? updated : l)), result: 'updated' };
+  const merged = { ...updated, qty: Math.min(updated.qty + lines[other]!.qty, MAX_QTY_PER_ITEM) };
+  return { lines: lines.map((l, i) => (i === idx ? merged : l)).filter((_, i) => i !== other), result: 'merged' };
+}

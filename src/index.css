@@ -10,8 +10,18 @@
     /* Chữ to rõ: gốc 18px (điện thoại) → 19px (máy tính). Mọi cỡ rem tự to theo,
        và khi người dùng phóng to trình duyệt thì layout co giãn đúng (không khoá px). */
     font-size: 112.5%;
-    /* Neo #menu không bị header che: header + thanh chip */
-    scroll-padding-top: calc(var(--header-h, 4rem) + 1rem);
+    /* Gelasio (dáng Georgia) mặc định dùng SỐ KIỂU CŨ: 3 4 5 7 9 tụt xuống dưới dòng, 1 2 0 thấp như chữ thường
+       → giá / số lượng trông lệch, "2" cạnh "4" xấu. lining-nums: mọi số cao bằng chữ hoa, thẳng hàng. */
+    font-variant-numeric: lining-nums;
+    /* Phần trên cùng còn dính khi cuộn = header (đo bằng ResizeObserver → --header-h).
+       Màn THẤP (điện thoại xoay ngang, cao ≤ 500px): header cuộn đi theo trang, chỉ thanh danh mục dính
+       → --sticky-top = 0, nếu không header + thanh danh mục ăn hơn nửa màn hình. */
+    --sticky-top: var(--header-h, 4rem);
+    /* Neo #menu / mục loại món không bị phần dính che */
+    scroll-padding-top: calc(var(--sticky-top) + 1rem);
+  }
+  @media (max-height: 500px) {
+    html { --sticky-top: 0px; }
   }
   @media (min-width: 1024px) {
     html { font-size: 118.75%; }
@@ -35,6 +45,38 @@
     outline-offset: 2px;
   }
 
+  /* Nền tối sau hộp thoại: hiện / ẩn mờ dần (cùng nhịp với hộp) */
+  dialog[open]::backdrop { animation: backdrop-in .22s ease-out both; }
+  dialog[data-closing]::backdrop { animation: backdrop-out .18s ease-in both; }
+  @keyframes backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes backdrop-out { from { opacity: 1; } to { opacity: 0; } }
+
+  /*
+   * Chuyển trang / đổi danh mục / tìm món: View Transitions API của trình duyệt (không cần thư viện).
+   * Trình duyệt chưa hỗ trợ thì đổi ngay như cũ. Header đứng yên, nội dung mờ dần + trượt nhẹ lên;
+   * thẻ món có tên riêng (view-transition-name) nên tự trượt về chỗ mới khi lọc.
+   */
+  ::view-transition-group(*) { animation-duration: .28s; animation-timing-function: cubic-bezier(.2, .8, .3, 1); }
+  ::view-transition-old(root) { animation: .16s ease-in both vt-out; }
+  ::view-transition-new(root) { animation: .28s cubic-bezier(.2, .8, .3, 1) both vt-in; }
+  /* Đổi danh mục / tìm: trang không trượt (chỉ mờ chéo tiêu đề nhóm), thẻ món tự trượt về chỗ mới */
+  html[data-vt='menu']::view-transition-new(root) { animation: .22s ease-out both vt-fade-in; }
+  /* Thẻ món mới xuất hiện / biến mất: phóng nhẹ + mờ */
+  html[data-vt='menu']::view-transition-new(*):only-child { animation: .26s cubic-bezier(.2, .8, .3, 1) both vt-card-in; }
+  html[data-vt='menu']::view-transition-old(*):only-child { animation: .16s ease-in both vt-card-out; }
+  @keyframes vt-out { to { opacity: 0; } }
+  @keyframes vt-in { from { opacity: 0; transform: translateY(12px); } }
+  @keyframes vt-fade-in { from { opacity: 0; } }
+  @keyframes vt-card-in { from { opacity: 0; transform: scale(.92); } }
+  @keyframes vt-card-out { to { opacity: 0; transform: scale(.92); } }
+
+  /* Ô tìm kiếm đã có nút "Xoá" riêng (≥ 44px) → ẩn dấu × nhỏ mặc định của Chrome/Safari để không bị 2 dấu × */
+  input[type='search']::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+
+  /* Phần đứng yên khi chuyển trang (không mờ/trượt cùng nội dung) */
+  .vt-header { view-transition-name: site-header; }
+  .vt-admin-nav { view-transition-name: admin-nav; }
+
   /* Tôn trọng người dùng tắt chuyển động */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -43,6 +85,9 @@
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
     }
+    ::view-transition-group(*),
+    ::view-transition-old(*),
+    ::view-transition-new(*) { animation: none !important; }
   }
 }
 
@@ -76,5 +121,6 @@
   .pb-safe { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
   .scrollbar-none { scrollbar-width: none; }
   .scrollbar-none::-webkit-scrollbar { display: none; }
-  .tabular { font-variant-numeric: tabular-nums; }
+  /* Số thẳng hàng + rộng bằng nhau (giá, số lượng không "nhảy" khi đổi 1 → 4) */
+  .tabular { font-variant-numeric: lining-nums tabular-nums; }
 }

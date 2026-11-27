@@ -1,4 +1,4 @@
-import { useDeferredValue, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import type { Category, Product } from '@/types/domain';
 import { CATEGORIES, CATEGORY_ORDER } from '@/config/catalog';
@@ -8,8 +8,10 @@ import { ProductCard } from '@/components/shop/ProductCard';
 import { EmptyState, ProductGridSkeleton } from '@/components/ui/Feedback';
 import { Button } from '@/components/ui/Button';
 import { FoodArt } from '@/components/art/FoodArt';
-
-type Filter = Category | 'all';
+import { withViewTransition } from '@/lib/viewTransition';
+import { useShopPhase } from '@/hooks/useShopPhase';
+import { afterHoursShort } from '@/domain/hours';
+import { CategoryNav, sectionId } from '@/components/shop/CategoryNav';
 
 /** Bỏ dấu tiếng Việt để tìm "tra sua" vẫn ra "Trà sữa". */
 const fold = (s: string) =>
@@ -22,17 +24,22 @@ export default function HomePage() {
   const status = useShopStore((s) => s.status);
   const error = useShopStore((s) => s.error);
   const load = useShopStore((s) => s.load);
-  const isOpen = useShopStore((s) => s.settings.isOpen);
-  const [filter, setFilter] = useState<Filter>('all');
+  const phase = useShopPhase();
   const [q, setQ] = useState('');
-  const query = useDeferredValue(q); // gõ phím không bị khựng khi menu dài
+  /** Từ khoá đã "chốt" (sau khi ngừng gõ 180ms) → lọc + chạy hiệu ứng 1 lần, không giật theo từng phím */
+  const [query, setQuery] = useState('');
 
+  useEffect(() => {
+    if (q === query) return;
+    const t = window.setTimeout(() => withViewTransition(() => setQuery(q), 'menu'), q ? 180 : 0);
+    return () => window.clearTimeout(t);
+  }, [q, query]);
+
+  // Menu luôn là MỘT danh sách dài theo loại (kiểu GrabFood); chỉ ô tìm món mới lọc bớt
   const visible = useMemo(() => {
     const k = fold(query.trim());
-    return products.filter(
-      (p) => (filter === 'all' || p.category === filter) && (!k || fold(p.name).includes(k) || fold(p.description).includes(k)),
-    );
-  }, [products, filter, query]);
+    return k ? products.filter((p) => fold(p.name).includes(k) || fold(p.description).includes(k)) : products;
+  }, [products, query]);
 
   const groups = useMemo(() => {
     const m = new Map<Category, Product[]>();
@@ -41,11 +48,13 @@ export default function HomePage() {
     return [...m.entries()].filter(([, list]) => list.length > 0);
   }, [visible]);
 
+  // Ổn định tham chiếu (useMemo) → thanh danh mục không gắn lại sự kiện cuộn mỗi lần vẽ
+  const navCats = useMemo(() => groups.map(([c]) => c), [groups]);
   const counts = useMemo(() => {
-    const c: Record<Filter, number> = { all: products.length, drink: 0, cake: 0, snack: 0, combo: 0 };
-    for (const p of products) c[p.category]++;
+    const c = { drink: 0, cake: 0, snack: 0, combo: 0 } as Record<Category, number>;
+    for (const [cat, list] of groups) c[cat] = list.length;
     return c;
-  }, [products]);
+  }, [groups]);
 
   let rendered = 0; // ảnh của 4 thẻ đầu tải ngay (ảnh lớn đầu màn hình — LCP), còn lại lazy
 
@@ -53,15 +62,18 @@ export default function HomePage() {
     <>
       <Hero />
 
-      {status === 'ready' && !isOpen && (
+      {status === 'ready' && phase.kind !== 'open' && (
         <div className="shell mt-5">
           <p className="sticker bg-white px-4 py-3 text-center font-bold" role="status">
-            Tiệm đang tạm nghỉ nhận đơn online. Bạn vẫn xem menu được, quay lại sau nhé!
+            {phase.kind === 'paused'
+              ? 'Tiệm đang tạm nghỉ nhận đơn online. Bạn vẫn xem menu được, quay lại sau nhé!'
+              : afterHoursShort(phase)}
           </p>
         </div>
       )}
 
-      <section id="menu" className="shell mt-10" aria-labelledby="menu-title">
+      {/* html đã có scroll-padding-top = chiều cao header (index.css); tabIndex để nhận focus từ nút "Xem menu" */}
+      <section id="menu" tabIndex={-1} className="shell mt-10 outline-none" aria-labelledby="menu-title">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <h2 id="menu-title" className="text-3xl sm:text-4xl">
             Menu hôm nay
@@ -91,17 +103,7 @@ export default function HomePage() {
           </label>
         </div>
 
-        {/* Chip danh mục: dính dưới header khi cuộn, vuốt ngang trên điện thoại */}
-        <div className="sticky top-[var(--header-h,4rem)] z-20 -mx-4 mt-4 bg-cream/95 px-4 py-3 backdrop-blur-sm sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-          <div className="scrollbar-none -my-1 flex gap-2 overflow-x-auto py-1" role="group" aria-label="Lọc theo danh mục">
-            {(['all', ...CATEGORY_ORDER] as Filter[]).map((f) => (
-              <button key={f} type="button" className="chip" aria-pressed={filter === f} onClick={() => setFilter(f)}>
-                {f === 'all' ? 'Tất cả' : CATEGORIES[f].plural}
-                <span className="text-[0.85rem] font-normal text-ink-soft tabular">{counts[f]}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+        {status === 'ready' && <CategoryNav categories={navCats} counts={counts} />}
 
         <div className="mt-4">
           {status === 'idle' || status === 'loading' ? (
@@ -115,16 +117,17 @@ export default function HomePage() {
             />
           ) : groups.length === 0 ? (
             <EmptyState
-              icon={<div className="h-24 w-24"><FoodArt category="snack" /></div>}
+              // Hình đồ ăn nghiêng trái ↔ phải cho đỡ "trống trải" (tự tắt khi máy bật giảm chuyển động)
+              icon={<div className="h-24 w-24 origin-bottom animate-tilt"><FoodArt category="snack" /></div>}
               title={q ? `Không tìm thấy “${q}”` : 'Menu đang được cập nhật'}
               description={q ? 'Thử gõ tên khác, hoặc bỏ dấu xem sao.' : 'Bạn quay lại sau ít phút nhé!'}
               action={
-                (q || filter !== 'all') && (
+                q && (
                   <Button
                     variant="secondary"
                     onClick={() => {
                       setQ('');
-                      setFilter('all');
+                      setQuery('');
                     }}
                   >
                     Xem tất cả món
@@ -133,15 +136,15 @@ export default function HomePage() {
               }
             />
           ) : (
-            <div className="space-y-10">
+            <div className="space-y-10 sm:space-y-14">
               {groups.map(([cat, list]) => (
-                <section key={cat} aria-labelledby={`cat-${cat}`}>
-                  {(filter === 'all' || groups.length > 1) && (
-                    <h3 id={`cat-${cat}`} className="mb-4 flex items-center gap-3 text-2xl">
-                      <span className="inline-block h-6 w-1 rounded-full bg-tangerine" aria-hidden />
-                      {CATEGORIES[cat].plural}
-                    </h3>
-                  )}
+                // scroll-margin = chiều cao thanh danh mục (header đã được html scroll-padding-top lo) → tiêu đề không bị che
+                <section key={cat} id={sectionId(cat)} aria-labelledby={`${sectionId(cat)}-title`} className="scroll-mt-[var(--catbar-h,3.5rem)]">
+                  <h3 id={`${sectionId(cat)}-title`} className="mb-4 flex items-baseline gap-3 text-[1.75rem] leading-tight sm:text-4xl">
+                    <span className="inline-block h-7 w-1.5 shrink-0 self-center rounded-full bg-tangerine sm:h-8" aria-hidden />
+                    {CATEGORIES[cat].plural}
+                    <span className="text-base font-normal text-ink-soft tabular sm:text-lg">{list.length} món</span>
+                  </h3>
                   <div className={GRID}>
                     {list.map((p) => (
                       <ProductCard key={p.id} product={p} eager={rendered++ < 4} />

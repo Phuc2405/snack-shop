@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { cancelReasonLabel } from '@/domain/cancelReasons';
 import { AlertTriangle, Copy, Phone } from 'lucide-react';
 import type { Order, OrderStatus } from '@/types/domain';
 import type { PriceIssue } from '@/domain/pricing';
@@ -24,6 +25,14 @@ function issueText(i: PriceIssue): string {
       return `Tạm tính sai: đúng là ${formatPrice(i.expected)}, đơn ghi ${formatPrice(i.actual)}`;
     case 'total_mismatch':
       return `Tổng sai: đúng là ${formatPrice(i.expected)}, đơn ghi ${formatPrice(i.actual)}`;
+    case 'bad_qty':
+      return `${i.name}: số lượng ${i.qty} không hợp lệ`;
+    case 'count_mismatch':
+      return `Số món sai: các dòng cộng lại là ${i.expected}, đơn ghi ${i.actual}`;
+    case 'long_text':
+      return `${i.name}: ${i.field === 'note' ? 'ghi chú' : 'tên món'} dài ${i.length} ký tự (đơn không đi qua app)`;
+    case 'unavailable':
+      return `${i.name}: món đang ${i.hidden ? 'ẩn khỏi menu' : 'tạm hết'}, kiểm tra còn làm được không trước khi nhận`;
   }
 }
 
@@ -63,6 +72,20 @@ export function OrderDetail({
             <PaymentBadge order={order} />
             <span className="text-ink-soft">{formatDateTime(order.createdAt)}</span>
           </div>
+          {order.status === 'cancelled' && (
+            <p className="rounded-xl border border-edge bg-berry-soft px-3 py-2">
+              {order.cancelledBy === 'shop' ? 'Tiệm huỷ' : 'Khách huỷ'}
+              {order.cancelReason ? (
+                <>
+                  {' · '}
+                  <strong>{cancelReasonLabel(order.cancelReason, order.cancelledBy)}</strong>
+                </>
+              ) : (
+                ' · không ghi lý do (đơn cũ)'
+              )}
+              {order.cancelNote && <span className="block">“{order.cancelNote}”</span>}
+            </p>
+          )}
           {order.status !== 'cancelled' && (
             <Button variant={order.paid ? 'secondary' : 'success'} size="sm" disabled={busy} onClick={() => onTogglePaid(order)}>
               {order.paid ? 'Bỏ xác nhận đã thu tiền' : `Đã nhận ${formatPrice(order.total)}${order.paymentMethod === 'transfer' ? ' (chuyển khoản)' : ''}`}
@@ -75,7 +98,13 @@ export function OrderDetail({
             <a href={`tel:${order.customer.phone}`} className="inline-flex min-h-[2.75rem] items-center gap-2 font-bold underline underline-offset-4">
               <Phone className="h-4 w-4" aria-hidden /> {order.customer.phone}
             </a>
-            <p className="mt-1">{order.fulfillment === 'delivery' ? 'Giao tận nơi' : 'Khách ghé tiệm lấy'}</p>
+            <p className="mt-1">
+              {order.fulfillment === 'delivery'
+                ? order.shipToDriver
+                  ? 'Đặt ship · khách trả phí ship cho tài xế'
+                  : 'Đặt ship'
+                : 'Khách ghé tiệm lấy'}
+            </p>
             {order.customer.address && (
               <p className="mt-1 flex items-start gap-2">
                 <span className="flex-1">{order.customer.address}</span>
@@ -108,8 +137,8 @@ export function OrderDetail({
             </ul>
             <dl className="mt-2 space-y-1 border-t border-dashed border-edge-strong pt-2">
               <div className="flex justify-between">
-                <dt>Phí giao</dt>
-                <dd className="tabular">{formatPrice(order.deliveryFee)}</dd>
+                <dt>Phí ship</dt>
+                <dd className="tabular">{order.shipToDriver ? 'Khách trả tài xế' : formatPrice(order.deliveryFee)}</dd>
               </div>
               <div className="flex justify-between text-lg font-bold">
                 <dt>Tổng thu</dt>

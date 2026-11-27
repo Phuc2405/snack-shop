@@ -61,7 +61,13 @@ export function subscribeOrders(onChange: (orders: Order[]) => void, onError: (e
   };
 }
 
-export async function setOrderStatus(order: Order, to: OrderStatus, staffNote?: string): Promise<void> {
+export async function setOrderStatus(
+  order: Order,
+  to: OrderStatus,
+  staffNote?: string,
+  /** Bắt buộc khi to = 'cancelled' (rules từ chối nếu thiếu lý do) */
+  cancel?: { reason: string; note: string },
+): Promise<void> {
   if (!canTransition(order.status, to)) throw toAppError({ code: 'permission-denied' });
   try {
     const rt = await getRealtimeDb();
@@ -69,7 +75,7 @@ export async function setOrderStatus(order: Order, to: OrderStatus, staffNote?: 
     await updateDoc(doc(rt, 'orders', order.id), {
       status: to,
       updatedAt: serverTimestamp(),
-      ...(to === 'cancelled' ? { cancelledBy: 'shop' } : {}),
+      ...(to === 'cancelled' ? { cancelledBy: 'shop', cancelReason: cancel?.reason ?? '', ...(cancel?.note ? { cancelNote: cancel.note } : {}) } : {}),
       ...(staffNote !== undefined ? { staffNote } : {}),
     });
   } catch (e) {

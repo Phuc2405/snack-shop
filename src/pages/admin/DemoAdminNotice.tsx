@@ -12,7 +12,7 @@ export function DemoAdminNotice() {
           Bản này chỉ để xem giao diện bán hàng với dữ liệu mẫu. Trang quản lý (nhận đơn realtime, sửa món, báo cáo) chạy khi tiệm nối
           với Firebase thật.
         </p>
-        <Link
+        <Link viewTransition
           to="/"
           className="mt-6 inline-flex min-h-[3rem] items-center rounded-xl bg-tangerine px-6 font-bold text-ink shadow-sticker"
         >

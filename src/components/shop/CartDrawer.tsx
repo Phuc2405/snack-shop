@@ -4,6 +4,7 @@ import { Dialog } from '@/components/ui/Dialog';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/Feedback';
 import { QtyStepper } from '@/components/ui/QtyStepper';
+import { useCartLineQty } from '@/hooks/useCartLineQty';
 import { formatPrice } from '@/lib/format';
 import { useCartStore, selectSubtotal } from '@/stores/cart.store';
 import { useUiStore } from '@/stores/ui.store';
@@ -15,8 +16,7 @@ export function CartDrawer() {
   const open = useUiStore((s) => s.cartOpen);
   const close = useUiStore((s) => s.closeCart);
   const lines = useCartStore((s) => s.lines);
-  const setQty = useCartStore((s) => s.setQty);
-  const remove = useCartStore((s) => s.remove);
+  const changeQty = useCartLineQty(); // về 0 = bỏ món, có nút Hoàn tác
   const subtotal = useCartStore(selectSubtotal);
   const navigate = useNavigate();
 
@@ -40,7 +40,7 @@ export function CartDrawer() {
               className="w-full"
               onClick={() => {
                 close();
-                navigate('/checkout');
+                navigate('/checkout', { viewTransition: true });
               }}
             >
               Đặt món ngay
@@ -77,7 +77,7 @@ export function CartDrawer() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => remove(l.key)}
+                    onClick={() => changeQty(l, 0)}
                     className="-mr-2 -mt-1 grid h-10 w-10 shrink-0 place-items-center rounded-full text-ink-faint hover:bg-danger-soft hover:text-danger"
                     aria-label={`Bỏ ${l.name} khỏi giỏ`}
                   >
@@ -85,7 +85,7 @@ export function CartDrawer() {
                   </button>
                 </div>
                 <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
-                  <QtyStepper value={l.qty} onChange={(v) => setQty(l.key, v)} name={l.name} />
+                  <QtyStepper value={l.qty} onChange={(v) => changeQty(l, v)} name={l.name} />
                   <span className="price">{formatPrice(l.price * l.qty)}</span>
                 </div>
               </div>

@@ -48,6 +48,11 @@ export interface Product {
   featured: boolean;
   /** Thứ tự hiển thị, nhỏ đứng trước */
   sortOrder: number;
+  /**
+   * Ẩn khỏi menu khách (rules chặn khách đọc món ẩn). Khác "tạm hết": món ẩn biến mất hẳn,
+   * nhưng doc vẫn còn → đơn cũ (bản chụp tên + giá) và báo cáo không mất gì. Khác xoá: hiện lại được.
+   */
+  hidden: boolean;
   /** Nhóm tuỳ chọn (size, đường, đá, topping…). Rỗng = món không có tuỳ chọn */
   options: OptionGroup[];
   updatedAt: Date | null;
@@ -72,7 +77,17 @@ export interface ShopSettings {
   bankBin: string;
   bankAccount: string;
   bankAccountName: string;
+  /**
+   * Cách tính phí ship:
+   *  - 'flat': đồng giá `deliveryFee` (freeship từ `freeShipFrom`) → biết tổng tiền ngay khi đặt.
+   *  - 'driver': tiệm không thu phí ship; khách trả phí cho tài xế (Grab/Be/Ahamove) khi nhận.
+   */
+  shipFeeMode: ShipFeeMode;
+  /** Đơn ship bắt buộc chuyển khoản trước (chống "bom hàng"). Cần đã khai báo tài khoản ngân hàng. */
+  shipPrepaid: boolean;
 }
+
+export type ShipFeeMode = 'flat' | 'driver';
 
 export type Fulfillment = 'delivery' | 'pickup';
 
@@ -111,10 +126,39 @@ export interface Order {
   paymentMethod: PaymentMethod;
   /** Nhân viên xác nhận đã nhận tiền (chuyển khoản / tiền mặt) */
   paid: boolean;
+  /** Đơn ship mà phí ship khách trả trực tiếp cho tài xế (deliveryFee = 0, không nằm trong total) */
+  shipToDriver: boolean;
   cancelledBy?: 'customer' | 'shop';
+  /** Lý do huỷ (id trong domain/cancelReasons.ts) — bắt buộc với đơn huỷ từ nay; đơn huỷ trước đó có thể trống */
+  cancelReason?: string;
+  /** Ghi chú khi huỷ (không bắt buộc, trừ lý do "other") */
+  cancelNote?: string;
   staffNote?: string;
   createdAt: Date | null;
   updatedAt: Date | null;
+}
+
+/** Một địa chỉ nhận hàng trong sổ địa chỉ của tài khoản khách */
+export interface Address {
+  id: string;
+  /** Tên người nhận */
+  name: string;
+  phone: string;
+  address: string;
+}
+
+/** Doc users/{uid}: dữ liệu riêng của tài khoản khách (chỉ chính chủ đọc/ghi) */
+export interface UserDoc {
+  addresses: Address[];
+  defaultAddressId: string;
+}
+
+/** Tài khoản đang đăng nhập phía khách */
+export interface Account {
+  uid: string;
+  email: string;
+  /** Có doc staff/{uid} → hiện nút "Quản lý" (quyền thật vẫn do firestore.rules quyết) */
+  isStaff: boolean;
 }
 
 export interface StaffProfile {

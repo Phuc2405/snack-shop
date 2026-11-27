@@ -9,6 +9,7 @@ import { toAppError } from '@/lib/errors';
 import { Button } from '@/components/ui/Button';
 import { SelectField, TextField, Toggle } from '@/components/ui/FormField';
 import { BANKS } from '@/domain/vietqr';
+import { cn } from '@/lib/cn';
 import { AdminHeader } from './AdminLayout';
 
 export default function SettingsPage() {
@@ -20,8 +21,15 @@ export default function SettingsPage() {
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors, isSubmitting, isDirty },
   } = useForm<SettingsFormInput, unknown, SettingsFormValues>({ resolver: zodResolver(settingsSchema), defaultValues: settings });
+  const shipFeeMode = watch('shipFeeMode');
+  const radioCls = (active: boolean) =>
+    cn(
+      'flex cursor-pointer items-start gap-3 rounded-2xl border border-edge p-4 transition-colors',
+      active ? 'bg-lemon shadow-sticker' : 'bg-white hover:bg-lemon-soft',
+    );
 
   useEffect(() => {
     void load({ silent: true });
@@ -54,11 +62,56 @@ export default function SettingsPage() {
           <TextField label="Hotline" type="tel" inputMode="tel" maxLength={20} error={errors.hotline?.message} {...register('hotline')} />
           <TextField className="sm:col-span-2" label="Khẩu hiệu" maxLength={120} error={errors.tagline?.message} {...register('tagline')} />
           <TextField className="sm:col-span-2" label="Địa chỉ tiệm" maxLength={200} error={errors.address?.message} {...register('address')} />
-          <TextField label="Giờ mở cửa" maxLength={80} placeholder="8:00 – 22:00 hằng ngày" error={errors.openHours?.message} {...register('openHours')} />
+          <TextField
+            label="Giờ mở cửa"
+            maxLength={80}
+            placeholder="8:00 – 22:00 hằng ngày"
+            hint="Ghi dạng 8:00 – 22:00. Ngoài giờ này khách vẫn đặt trước được, web báo “tiệm đang đóng cửa, ngày mai tiệm xác nhận”."
+            error={errors.openHours?.message}
+            {...register('openHours')}
+          />
         </section>
 
         <section className="sticker grid gap-4 p-5 sm:grid-cols-2 sm:p-6">
-          <TextField label="Phí giao hàng (đồng)" inputMode="numeric" error={errors.deliveryFee?.message} {...register('deliveryFee')} />
+          <fieldset className="sm:col-span-2">
+            <legend className="text-xl">Đặt ship: tính phí thế nào?</legend>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className={radioCls(shipFeeMode === 'flat')}>
+                <input type="radio" value="flat" {...register('shipFeeMode')} className="mt-1 h-5 w-5 accent-ink" />
+                <span>
+                  <span className="block font-bold">Đồng giá (khuyên dùng)</span>
+                  <span className="text-[0.9rem] text-ink-soft">
+                    Một mức phí cho mọi đơn trong khu vực, có freeship. Khách biết tổng tiền ngay → chuyển khoản / tiền mặt đều được.
+                  </span>
+                </span>
+              </label>
+              <label className={radioCls(shipFeeMode === 'driver')}>
+                <input type="radio" value="driver" {...register('shipFeeMode')} className="mt-1 h-5 w-5 accent-ink" />
+                <span>
+                  <span className="block font-bold">Khách trả tài xế</span>
+                  <span className="text-[0.9rem] text-ink-soft">
+                    Tiệm gọi Grab/Be/Ahamove; phí ship theo app, khách trả thẳng cho tài xế. Đơn chỉ tính tiền món.
+                  </span>
+                </span>
+              </label>
+            </div>
+          </fieldset>
+          <div className="sm:col-span-2">
+            <Toggle
+              label="Đơn ship phải chuyển khoản trước"
+              description="Chống “bom hàng”: đơn ship chỉ nhận chuyển khoản QR (ghé lấy vẫn trả tiền mặt được). Cần điền tài khoản VietQR bên dưới."
+              {...register('shipPrepaid')}
+            />
+            {errors.shipPrepaid && (
+              <p className="mt-1 font-bold text-danger" role="alert">
+                {errors.shipPrepaid.message}
+              </p>
+            )}
+          </div>
+          {shipFeeMode === 'flat' && (
+            <TextField label="Phí ship đồng giá (đồng)" inputMode="numeric" error={errors.deliveryFee?.message} {...register('deliveryFee')} />
+          )}
+          {shipFeeMode === 'flat' && (
           <TextField
             label="Freeship cho đơn từ (đồng)"
             inputMode="numeric"
@@ -66,6 +119,7 @@ export default function SettingsPage() {
             error={errors.freeShipFrom?.message}
             {...register('freeShipFrom')}
           />
+          )}
           <TextField label="Đơn tối thiểu (đồng)" inputMode="numeric" hint="0 = không giới hạn" error={errors.minOrder?.message} {...register('minOrder')} />
           <TextField
             className="sm:col-span-2"

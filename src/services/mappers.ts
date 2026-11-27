@@ -1,4 +1,4 @@
-import type { Category, OptionGroup, Order, OrderItem, OrderStatus, Product, SelectedOption, ShopSettings } from '@/types/domain';
+import type { Address, Category, OptionGroup, Order, OrderItem, OrderStatus, Product, SelectedOption, ShopSettings, UserDoc } from '@/types/domain';
 import { DEFAULT_SETTINGS } from '@/config/catalog';
 
 /**
@@ -50,6 +50,7 @@ export function toProduct(id: string, d: Raw): Product {
     available: bool(d.available, true),
     featured: bool(d.featured),
     sortOrder: num(d.sortOrder, 999),
+    hidden: bool(d.hidden),
     options: toOptionGroups(d.options),
     updatedAt: date(d.updatedAt),
   };
@@ -71,6 +72,8 @@ export function toSettings(d: Raw | undefined): ShopSettings {
     bankBin: str(d.bankBin),
     bankAccount: str(d.bankAccount),
     bankAccountName: str(d.bankAccountName),
+    shipFeeMode: d.shipFeeMode === 'driver' ? 'driver' : 'flat',
+    shipPrepaid: bool(d.shipPrepaid),
   };
 }
 
@@ -95,7 +98,10 @@ export function toOrder(id: string, d: Raw): Order {
     status: STATUSES.includes(d.status as OrderStatus) ? (d.status as OrderStatus) : 'new',
     paymentMethod: d.paymentMethod === 'transfer' ? 'transfer' : 'cod',
     paid: bool(d.paid),
+    shipToDriver: bool(d.shipToDriver),
     cancelledBy: d.cancelledBy === 'customer' || d.cancelledBy === 'shop' ? d.cancelledBy : undefined,
+    cancelReason: typeof d.cancelReason === 'string' ? d.cancelReason : undefined,
+    cancelNote: typeof d.cancelNote === 'string' && d.cancelNote ? d.cancelNote : undefined,
     staffNote: typeof d.staffNote === 'string' ? d.staffNote : undefined,
     createdAt: date(d.createdAt),
     updatedAt: date(d.updatedAt),
@@ -104,3 +110,14 @@ export function toOrder(id: string, d: Raw): Order {
 
 export const sortProducts = (list: Product[]) =>
   [...list].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'vi'));
+
+export const MAX_ADDRESSES = 5;
+
+export function toUserDoc(d: Raw | undefined): UserDoc {
+  const addresses: Address[] = arr(d?.addresses)
+    .map((a, i) => ({ id: str(a.id, `a${i}`), name: str(a.name), phone: str(a.phone), address: str(a.address) }))
+    .filter((a) => a.name && a.phone)
+    .slice(0, MAX_ADDRESSES);
+  const def = str(d?.defaultAddressId);
+  return { addresses, defaultAddressId: addresses.some((a) => a.id === def) ? def : (addresses[0]?.id ?? '') };
+}

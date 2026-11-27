@@ -87,12 +87,15 @@ const firestoreOrderRepo = {
     }
   },
 
-  async cancelMine(id: string): Promise<void> {
+  /** Khách huỷ (đơn còn "new"): bắt buộc lý do, ghi chú tuỳ chọn — rules kiểm lại cả hai. */
+  async cancelMine(id: string, reason: string, note = ''): Promise<void> {
     try {
       await ready();
       await updateDoc(doc(db(), 'orders', id), {
         status: 'cancelled',
         cancelledBy: 'customer',
+        cancelReason: reason,
+        ...(note ? { cancelNote: note } : {}),
         updatedAt: serverTimestamp(),
       });
     } catch (e) {

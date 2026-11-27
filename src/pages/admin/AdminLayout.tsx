@@ -39,9 +39,9 @@ export function AdminLayout() {
 
   return (
     <div className="flex min-h-dvh flex-col lg:flex-row">
-      <aside className="border-b border-edge bg-tangerine-soft lg:sticky lg:top-0 lg:flex lg:h-dvh lg:w-64 lg:shrink-0 lg:flex-col lg:border-b-0 lg:border-r lg:border-edge">
+      <aside className="vt-admin-nav border-b border-edge bg-tangerine-soft lg:sticky lg:top-0 lg:flex lg:h-dvh lg:w-64 lg:shrink-0 lg:flex-col lg:border-b-0 lg:border-r lg:border-edge">
         <div className="flex items-center justify-between gap-3 px-4 py-3 lg:block lg:px-5 lg:py-6">
-          <Link to="/admin" className="flex min-w-0 items-center gap-2.5">
+          <Link viewTransition to="/admin" className="flex min-w-0 items-center gap-2.5">
             <BrandMark className="h-10 w-10 shrink-0" />
             <span className="min-w-0">
               <span className="block truncate font-bold leading-tight">{shopName}</span>
@@ -59,7 +59,7 @@ export function AdminLayout() {
         </div>
         <nav className="scrollbar-none flex gap-1.5 overflow-x-auto px-3 pb-3 lg:flex-1 lg:flex-col lg:overflow-visible lg:px-4" aria-label="Quản lý">
           {NAV.map(({ to, label, icon: Icon, end }) => (
-            <NavLink key={to} to={to} end={end} className={linkCls}>
+            <NavLink viewTransition key={to} to={to} end={end} className={linkCls}>
               <Icon className="h-5 w-5" aria-hidden /> {label}
             </NavLink>
           ))}
@@ -68,7 +68,7 @@ export function AdminLayout() {
           <p className="truncate font-bold">{staff.name || staff.email}</p>
           <p className="truncate text-[0.85rem] text-ink-soft">{staff.email}</p>
           <div className="mt-3 flex gap-2">
-            <Link to="/" className="inline-flex min-h-[2.75rem] items-center gap-1.5 rounded-xl px-2 text-ink-soft hover:bg-white hover:text-ink">
+            <Link viewTransition to="/" className="inline-flex min-h-[2.75rem] items-center gap-1.5 rounded-xl px-2 text-ink-soft hover:bg-white hover:text-ink">
               <Store className="h-4 w-4" aria-hidden /> Xem tiệm
             </Link>
             <button

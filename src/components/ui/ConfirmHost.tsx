@@ -1,14 +1,16 @@
 import { Dialog } from './Dialog';
 import { Button } from './Button';
 import { useConfirmStore } from '@/stores/confirm.store';
+import { useLastValue } from '@/hooks/useLastValue';
 
 /** Render hộp thoại cho `confirmDialog(...)`. Gắn một lần ở gốc app. */
 export function ConfirmHost() {
-  const request = useConfirmStore((s) => s.request);
+  const live = useConfirmStore((s) => s.request);
+  const request = useLastValue(live); // giữ chữ trong lúc hộp chạy hiệu ứng đóng
   const settle = useConfirmStore((s) => s.settle);
   return (
     <Dialog
-      open={!!request}
+      open={!!live}
       onClose={() => settle(false)}
       title={request?.title ?? ''}
       size="sm"
